@@ -16,21 +16,13 @@
 		0 16px 32px rgba(var(--gray), 33%);
 }
 @font-face {
-	font-family: 'Atkinson';
-	src: url('/fonts/atkinson-regular.woff') format('woff');
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-@font-face {
-	font-family: 'Atkinson';
-	src: url('/fonts/atkinson-bold.woff') format('woff');
-	font-weight: 700;
+	font-family: 'Lato', 'Verdana', 'Helvetic', sans-serif;;
+	font-weight: 100;
 	font-style: normal;
 	font-display: swap;
 }
 body {
-	font-family: 'Atkinson', sans-serif;
+	font-family: 'Lato', 'Verdana', 'Helvetic', sans-serif;;
 	margin: 0;
 	padding: 0;
 	text-align: left;
@@ -41,6 +33,19 @@ body {
 	color: rgb(var(--gray-dark));
 	font-size: 20px;
 	line-height: 1.7;
+}
+.grid-container {
+    display: grid;
+    grid-template-columns: auto 1fr; /* 200px for the sidebar and the remaining space for content */
+    grid-template-rows: 1fr auto; /* 1fr for content to take up all space, 'auto' for the footer to take up as much space as it needs */
+    height: 100vh; /* Use 100vh to fill the height of the viewport */
+    min-height: 100%; /* Ensure at least full viewport height */
+}
+.sidebar {
+    grid-row: 1 / -1; /* This makes the sidebar extend the full height of the grid container */
+    background-color: white; /* Sidebar color */
+    padding: 10px;
+    color: #fff;
 }
 main {
 	width: 720px;
