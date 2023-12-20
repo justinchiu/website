@@ -49,11 +49,21 @@ body {
     padding: 10px;
     color: #fff;
 }
+@media (min-width: 1200px) {
 main {
-	width: 768px;
+	width: 800px;
 	max-width: calc(100% - 4em);
 	margin: 1em 1em 1em 1em;
 	padding: 3em 1em;
+}
+}
+@media (max-width: 1200px) {
+main {
+	width: 800px;
+	max-width: calc(100% - 4em);
+	margin: auto;
+	padding: 3em 1em;
+}
 }
 h1,
 h2,
