@@ -3,8 +3,7 @@ import BaseHead from '../../components/BaseHead.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
-
-const publications = [1,2]
+import {Content as Publications} from '../../pages/publications/publications.md';
 ---
 
 <!doctype html>
@@ -16,15 +15,7 @@ const publications = [1,2]
 		<Header title={SITE_TITLE} />
 		<main>
     		<h3>Publications</h3>
-            {
-                publications.map((publication) => (
-                    <div class="pub">
-                        <div class="pub-title">
-                            {publication}
-                        </div>
-                    </div>
-                ))
-            }
+    		<Publications />
 		</main>
 		<Footer />
 	</div></body>

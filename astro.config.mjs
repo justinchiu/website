@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import yaml from '@rollup/plugin-yaml';
 
 import sitemap from '@astrojs/sitemap';
 
@@ -14,8 +15,11 @@ export default defineConfig({
         ],
         rehypePlugins: [
             rehypeKatex,
-        ]
+        ],
     },
 	site: 'https://justinchiu.netlify.app',
 	integrations: [mdx(), sitemap()],
+    vite: {
+        plugins: [yaml()],
+    },
 });
