@@ -34,7 +34,7 @@ body {
 	font-size: 20px;
 	line-height: 1.7;
 }
-@media (min-width: 500px) {
+@media (min-width: 1200px) {
     .grid-container {
         display: grid;
         grid-template-columns: auto 1fr;
