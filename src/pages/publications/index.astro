@@ -10,12 +10,19 @@ import {Content as Publications} from '../../pages/publications/publications.md'
 <html lang="en">
 	<head>
 		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+		<style>
+    	.publications {
+        	font-size: 16px;
+    	}
+    	</style>
 	</head>
 	<body><div class="grid-container">
 		<Header title={SITE_TITLE} />
 		<main>
     		<h3>Publications</h3>
+    		<div class="publications">
     		<Publications />
+    		</div>
 		</main>
 		<Footer />
 	</div></body>
