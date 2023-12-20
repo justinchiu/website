@@ -50,7 +50,7 @@ body {
     color: #fff;
 }
 main {
-	width: 1024px;
+	width: 768px;
 	max-width: calc(100% - 4em);
 	margin: auto;
 	padding: 3em 1em;
