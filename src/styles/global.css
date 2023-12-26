@@ -51,7 +51,7 @@ body {
 }
 @media (min-width: 1200px) {
 main {
-	width: 800px;
+	width: 600px;
 	max-width: calc(100% - 4em);
 	margin: 1em 1em 1em 1em;
 	padding: 1em 1em;
@@ -59,7 +59,7 @@ main {
 }
 @media (max-width: 1200px) {
 main {
-	width: 800px;
+	width: 600px;
 	max-width: calc(100% - 4em);
 	margin: auto;
 	padding: 3em 1em;
