@@ -19,6 +19,16 @@ const isActive = href === pathname || href === pathname.replace(/\/$/, '');
 	}
 	a.active {
 		font-weight: bolder;
-		text-decoration: underline;
+		text-decoration: none;
 	}
+	/* SOLUTION from https://stackoverflow.com/questions/556153/inline-elements-shifting-when-made-bold-on-hover */
+    /* The pseudo element has the same content and hover style, so it pre-sets the width of the element and visibility: hidden hides the pseudo element from actual view. */
+    a::before {
+        display: block;
+        content: attr(title);
+        font-weight: bold;
+        height: 0;
+        overflow: hidden;
+        visibility: hidden;
+    }
 </style>
