@@ -52,8 +52,8 @@ ICML 2019
 
 [Latent Alignment and Variational Attention](https://proceedings.neurips.cc/paper/2018/hash/b691334ccf10d4ab144d672f7783c8a3-Abstract.html)
 Yuntian Deng, Yoon Kim, **Justin Chiu**, Demi Guo, Alexander M Rush\
-NeurIPS 2018\
+NeurIPS 2018
 
 [Exploring normalization in deep residual networks with concatenated rectified linear units](https://ojs.aaai.org/index.php/AAAI/article/view/10759)
 Wenling Shang, **Justin Chiu**, Kihyuk Sohn\
-AAAI 2017\
+AAAI 2017
