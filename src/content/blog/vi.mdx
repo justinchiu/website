@@ -1,0 +1,143 @@
+---
+title: 'Variational inference: Ising models'
+description: 'Variational inference for a simple Ising model'
+pubDate: 'Dec 26 2023'
+---
+
+Welcome to my first blog post! 
+I'll be populating this blog with (hopefully) short, bite-sized puzzles
+that I run into.
+<b>Disclaimer:</b> This post is currently under construction, while I figure out how to 
+save draft posts.
+
+Today's post is going to be about something near and dear to me: variational inference.
+I've always had a soft spot for probabilistic inference,
+even if it's sometimes hard to justify due to the tension between
+expressivity of the model and the computational cost of inference[^1].
+
+In this post, I will be walking the application of simple variational inference
+in a classical graphical model, an Ising model.
+
+## Introduction
+[Ising models](https://en.wikipedia.org/wiki/Ising_model)
+have been used, before neural networks became the de-facto method for everything,
+for things like semantic segmentation in images.
+In its simplest form,
+the goal of semantic segmentation
+is to classify each individual pixel of an image as foreground or background.
+
+Naturally, if a pixel is in the foreground of an image,
+then its neighbouring pixels are more likely to be foreground as well.
+Ising models have the ability to formalize this by
+assigning an affinity score to neighbouring pixels:
+the affinity score is high if the pixels take the same value (e.g. foreground)
+and low otherwise.
+
+While Ising models are generally [bad generative models](https://arxiv.org/abs/1609.02036)[^2]
+and have basically completely fallen out of favor for all forms of image modeling,
+we will be tackling the inference problem for fun.
+I promise it will actually be fun and relatively painless.
+
+## Problem setup
+Consider a variant of an Ising model that only models
+the interaction between between foreground pixels.
+Depending on the location of the pixel, its neighboring pixels
+may either be encouraged or discouraged from also being in the foreground.
+
+We can formalize this as a model over binary vectors, e.g. flattened image pixel labels
+$$x \in \{0,1\}^n$$, where a value of 1 indicates $x_i$ is in the foreground.
+The joint distribution over $x$ is given by:
+$$
+\begin{equation}
+p(x) = \frac{\exp(-x^TWx)}{Z}, 
+\end{equation}
+$$
+where the partition function is $$Z = \sum_x \exp(-x^TWx)$$[^3].
+The affinity matrix $$W\in\R^{n\times n}$$ determines the influence
+of pixel $$x_i$$ on pixel $$x_j$$.
+
+Our goal is to approximate the log partition (cumulant) function, $$\log Z$$.
+For notational convenience, we denote the potential function $$\phi(x) = -x^TWx$$,
+yielding
+$$
+\begin{equation}
+\log p(x) = \phi(x) - \log Z. 
+\end{equation}
+$$
+
+## Variational lower bound
+We can lower bound the cumulant function by starting with the KL
+between a variational distribution $$q$$ and $$p$$:
+$$
+\begin{align}
+KL[q||p]&= E_{q(x)}[\log q(x) - \log p(x)]\\
+&= E_{q(x)}[\log q(x)] - E_{q(x)}[\phi(x) - \log Z]\\
+&= -H[q] - E_{q(x)}[\phi(x)] + \log Z
+\end{align}
+$$
+Rearranging, we get
+$$
+\begin{align}
+\log Z
+&= H[q] + E_{q(x)}[\phi(x)] + KL[q||p]\\
+&\ge H[q] + E_{q(x)}[\phi(x)]
+\end{align}
+$$
+by Gibbs inequality.
+
+## Mean parameterization
+We assume the variational distribution is fully factored:
+$$
+\begin{equation}
+    \log q(x) = \sum_i \log q_i(x_i),
+\end{equation}
+$$
+with each $$q_i(x_i) = \text{Bernoulli}(\mu_i)$$.
+Our goal in this section is to rewrite the lower bound in terms of the variational mean parameters $\mu = (\mu_1,\ldots,\mu_n)$.
+
+The entropy can be expressed as
+$$
+\begin{equation}
+H[q] = -\sum_i \mu_i\log\mu_i - \sum_i(1-\mu_i)\log(1-\mu_i).
+\end{equation}
+$$
+
+The expected potentials can be expressed as
+$$
+\begin{align}
+E_{q(x)}[\phi(x)]
+&= E_{q}[-\sum_{i,j} x_ix_jW_{ij}]\\
+&= -\sum_{i,j} W_{ij}E_{q(x_i,x_j)}[x_ix_j].
+\end{align}
+$$
+Note that $$E_{q(x_i,x_j)}[x_ix_j] = E_{q(x_i)} x_i E_{q(x_j|x_i)} x_j$$,
+which is $$\mu_i\mu_j$$ if $$i \ne j$$ and $$\mu_i$$ if $$i=j$$.
+Therefore, we have
+$$
+\begin{align}
+E_{q(x)}[\phi(x)]
+&= -\sum_{i\ne j}\mu_i\mu_jW_{ij} - \sum_{i}\mu_iW_{ii}\\
+&= -\sum_{i,j} \mu_i\mu_jW_{ij}
+- \sum_{i} \mu_i W_{ii}
++ \sum_{i} \mu_i^2 W_{ii}.
+\end{align}
+$$
+
+## Implementation
+```python
+import torch
+```
+
+[^1]: In the past, I've tried to scale probabilistic models like
+(hidden Markov models)[https://arxiv.org/abs/2011.04640]
+to limited success. The bigger the model,
+the more expensive it is to train!
+This is kind of obvious, but the tradeoff seems to be worse for
+models that maintain explicit representations of uncertainty
+than those that do not, e.g. neural networks.
+[^2]: I posit that this is due to the inability to model long-range dependencies
+or low frequency features.
+However, Ising models could potentially model local dependences / high frequency features well.
+It's possible that combining Ising models with diffusion models
+may lead to nice mix of capabilities.
+[^3]: We use the notation from the ["Monster" paper](https://people.eecs.berkeley.edu/~wainwrig/Papers/WaiJor08_FTML.pdf) by Wainwright and Jordan.
