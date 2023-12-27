@@ -9,7 +9,7 @@ import FormattedDate from '../../components/FormattedDate.astro';
 const posts = (await getCollection(
     'blog',
     ({ data }) => {
-        return data.draft != true;
+        return data.draft !== true;
     })
 ).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
