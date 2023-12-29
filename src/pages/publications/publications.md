@@ -1,3 +1,7 @@
+[Symbolic Planning and Code Generation for Grounded Dialogue](https://arxiv.org/abs/2310.17140)\
+**Justin T Chiu**, Wenting Zhao, Derek Chen, Saujas Vaduguru, Alexander M Rush, Daniel Fried\
+EMNLP 2023
+
 [Language Model Inversion](https://arxiv.org/abs/2311.13647)\
 John X Morris, Wenting Zhao, **Justin T Chiu**, Vitaly Shmatikov, Alexander M Rush\
 Preprint
@@ -9,10 +13,6 @@ Preprint
 [UNcommonsense Reasoning: Abductive Reasoning about Uncommon Situations](https://arxiv.org/abs/2311.08469)\
 Wenting Zhao, **Justin T Chiu**, Jena D Hwang, Faeze Brahman, Jack Hessel, Sanjiban Choudhury, Yejin Choi, Xiang Lorraine Li, Alane Suhr\
 Preprint
-
-[Symbolic Planning and Code Generation for Grounded Dialogue](https://arxiv.org/abs/2310.17140)\
-**Justin T Chiu**, Wenting Zhao, Derek Chen, Saujas Vaduguru, Alexander M Rush, Daniel Fried\
-EMNLP 2023
 
 [Abductive Commonsense Reasoning Exploiting Mutually Exclusive Explanations](https://arxiv.org/abs/2305.14618)\
 Wenting Zhao, **Justin T Chiu**, Claire Cardie, Alexander M Rush\
