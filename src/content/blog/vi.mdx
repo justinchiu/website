@@ -1,15 +1,13 @@
 ---
-title: '[Draft] Variational inference: Ising models'
+title: 'Variational inference: Ising models'
 description: 'Variational inference for a simple Ising model'
-pubDate: 'Dec 26 2023'
+pubDate: 'Dec 30 2023'
 draft: true
 ---
 
 Welcome to my first blog post! 
 I'll be populating this blog with (hopefully) short, bite-sized puzzles
 that I run into.
-<b>Disclaimer:</b> This post is currently under construction, while I figure out how to 
-save draft posts.
 
 Today's post is going to be about something near and dear to me: variational inference.
 I've always had a soft spot for probabilistic inference,
@@ -18,6 +16,8 @@ expressivity of the model and the computational cost of inference[^1].
 
 In this post, I will be going over the application of simple variational inference
 in a classical graphical model, an Ising model.
+I'm going to assume familiarity with variational inference,
+and speed through things a little quickly.
 
 ## Introduction
 [Ising models](https://en.wikipedia.org/wiki/Ising_model)
@@ -35,9 +35,8 @@ the affinity score is high if the pixels take the same value (e.g. foreground)
 and low otherwise.
 
 While Ising models are generally [bad generative models](https://arxiv.org/abs/1609.02036)[^2]
-and have basically completely fallen out of favor for all forms of image modeling,
+and have almost completely fallen out of favor for all forms of image modeling,
 we will be tackling the inference problem for fun.
-I promise it will actually be fun and relatively painless.
 
 ## Problem setup
 Consider a variant of an Ising model that only models
@@ -84,7 +83,7 @@ $$
 &\ge H[q] + E_{q(x)}[\phi(x)] = \mathcal{L}
 \end{align}
 $$
-by Gibbs inequality.
+by [Gibbs inequality](https://en.wikipedia.org/wiki/Gibbs%27_inequality).
 
 ## Mean parameterization
 We assume the variational distribution is fully factored:
@@ -95,6 +94,11 @@ $$
 $$
 with each $$q_i(x_i) = \text{Bernoulli}(\mu_i)$$.
 Our goal in this section is to rewrite the lower bound in terms of the variational mean parameters $\mu = (\mu_1,\ldots,\mu_n)$.
+Writing down the bound in terms of the mean parameters will allow use to
+easily implement things in code.
+
+The lower bound $$\mathcal{L}$$ is the sum of the entropy $$H[q]$$
+and the expected potentials $$E_{q}[\phi(x)]$$.
 
 The entropy can be expressed as
 $$
@@ -125,8 +129,56 @@ E_{q(x)}[\phi(x)]
 $$
 
 ## Implementation
+The implementation of these two terms is relatively straightforward in `torch`.
+One thing we have to be careful of is that the mean parameters of $$q$$, 
+the $$\mu_i$$, are constrained to be in $$[0,1]$$.
+We can achieve that by projecting the parameters to the correct space
+by applying a sigmoid function every time they are needed.
+
 ```python
 import torch
+
+class InferenceNetwork(torch.nn.Module):
+    """ Fully factored inference network for Ising model.
+        Parameterizes vector of Bernoulli means, mu, independently.
+    """
+    def __init__(self, W):
+        super().__init__()
+        dim = W.shape[0]
+        self.W = W
+        self.means = torch.nn.Parameter(torch.zeros(dim, dtype=torch.float32))
+
+    def entropy(self):
+        mu = self.means.sigmoid()
+        complement = 1 - mu
+        return -(
+            (mu * mu.log()).sum()
+            + (complement * complement.log()).sum()
+        )
+
+    def expected_potential(self):
+        mu = self.means.sigmoid()
+        quadratic = torch.einsum("i,j,ij->", mu, mu, self.W)
+        mean = torch.einsum("i,i->", mu, self.W.diag())
+        bias = torch.einsum("i,i->", mu**2, self.W.diag())
+        return -quadratic - (mean - bias)
+
+    def lowerbound(self):
+        return self.entropy() + self.expected_potential()
+```
+
+## Training
+We can optimize the the lower bound to try to get the best $$q^*$$
+with the closest approximation of $$\log Z$$ in our hypothesis class
+by directly optimizing the lower bound:
+```python
+def fit(model, num_steps=100, lr=1e-2):
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    for step in range(num_steps):
+        optimizer.zero_grad()
+        loss = -model.lowerbound()
+        loss.backward()
+        optimizer.step()
 ```
 
 [^1]: In the past, I've tried to scale probabilistic models like
@@ -141,4 +193,4 @@ or low frequency features.
 However, Ising models could potentially model local dependences / high frequency features well.
 It's possible that combining Ising models with diffusion models
 may lead to nice mix of capabilities.
-[^3]: We use the notation from the ["Monster" paper](https://people.eecs.berkeley.edu/~wainwrig/Papers/WaiJor08_FTML.pdf) by Wainwright and Jordan.
+[^3]: We try to mostly use the notation from the ["Monster" paper](https://people.eecs.berkeley.edu/~wainwrig/Papers/WaiJor08_FTML.pdf) by Wainwright and Jordan.
