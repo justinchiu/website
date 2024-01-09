@@ -47,7 +47,7 @@ $$
 
 # Recurrent form
 To make things more amenable to writing in a recurrent form, as in equation (1),
-we compute the transpose of the gradient:
+we can compute the transpose of the gradient:
 $$
 \begin{align}
 \frac{\partial L}{\partial x_i}^\top
@@ -70,7 +70,7 @@ $$
     \left(\frac{\partial L}{\partial h_{i+1}}^\top + \cdots\right)\right).
 \end{align}
 $$
-This can be written as a backward input-dependent associative scan as follows:
+This can be written as a backward process as follows:
 $$
 \begin{equation}
 g_i = \frac{\partial L}{\partial h_t}^\top+\frac{\partial h_{i+1}}{\partial h_{i}}^\top g_{i+1},
@@ -83,4 +83,8 @@ $$
 \end{equation}
 $$
 
+However, this does not easily admit a parallel scan implementation,
+as it is not clear what the associative operator would be.
+
 # Grid form
+Let's take a step back and 
