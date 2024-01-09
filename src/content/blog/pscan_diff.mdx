@@ -87,19 +87,20 @@ However, this does not easily admit a parallel scan implementation,
 as it is not clear what the associative operator would be.
 
 # Grid form
-Let's trek all the way back to equation (3), and write things out in full
-for a couple steps:
+Let's trek all the way back to equation (3):
 $$
 \frac{\partial L}{\partial x_i}
 = \sum_{t=i}^T \frac{\partial L}{\partial h_t}\frac{\partial h_t}{\partial h_{t-1}}
     \cdots\frac{\partial h_i}{\partial x_i}.
 $$
-
-
+Let's try writing out this out for a couple steps:
 $$
 \begin{array}{ccccc}
-  & \frac{\partial h_i}{\partial x_i}^\top &  & & \frac{\partial L}{\partial h_i}\\
-+ & \frac{\partial h_i}{\partial x_i}^\top & \frac{\partial h_{i+1}}{\partial h_i} & & \frac{\partial L}{\partial h_{i+1}}\\
-+ & \frac{\partial h_i}{\partial x_i}^\top & \frac{\partial h_{i+1}}{\partial h_i} & \frac{\partial h_{i+2}}{\partial h_{i+1}} & \frac{\partial L}{\partial h_{i+2}}\\
+  & \frac{\partial L}{\partial h_i} &  & & \frac{\partial h_i}{\partial x_i}\\
++ & \frac{\partial L}{\partial h_{i+1}} & \frac{\partial h_{i+1}}{\partial h_i} & & \frac{\partial h_i}{\partial x_i}\\
++ & \frac{\partial L}{\partial h_{i+2}} & \frac{\partial h_{i+1}}{\partial h_i} & \frac{\partial h_{i+2}}{\partial h_{i+1}} & \frac{\partial h_i}{\partial x_i}\\
 \end{array}
 $$
+This seems like a relatively simple combination of a cumulative product,
+$$\prod_{t=i}^T \frac{\partial h_{t+1}}{\partial h_t}$$,
+and sum of terms taken from that product.
