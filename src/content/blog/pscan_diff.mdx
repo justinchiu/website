@@ -94,7 +94,7 @@ $$
 \frac{\partial L}{\partial x_i}
 &= \sum_{t=i}^T \frac{\partial L}{\partial h_t}\frac{\partial h_t}{\partial h_{t-1}}
     \cdots\frac{\partial h_i}{\partial x_i}\\
-&= \begin{array}{lllll}
+&= \begin{array}{ccccc}
   & \frac{\partial h_i}{\partial x_i}^\top &  & & \frac{\partial L}{\partial h_i}\\
 + & \frac{\partial h_i}{\partial x_i}^\top & \frac{\partial h_{i+1}}{\partial h_i} & & \frac{\partial L}{\partial h_{i+1}}\\
 + & \frac{\partial h_i}{\partial x_i}^\top & \frac{\partial h_{i+1}}{\partial h_i} & \frac{\partial h_{i+2}}{\partial h_{i+1}} & \frac{\partial L}{\partial h_{i+2}}\\
