@@ -106,5 +106,5 @@ $$\prod_{t=i}^T \frac{\partial h_{t+1}}{\partial h_t}$$,
 and sum of terms taken from that product.
 
 On parallel hardware, the cumulative product can be computed in time $$O(\log T)$$,
-the multiplication of each term  of that cumulative product can be computed in $$O(1)$$,
+the multiplication of each term  of that cumulative product with the grad output can be computed in $$O(1)$$,
 and the sum reduction in $$O(\log T)$$ time.
