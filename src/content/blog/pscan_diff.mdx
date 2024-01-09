@@ -1,0 +1,24 @@
+---
+title: 'Differentiating through an associative parallel scan'
+description: 'Blogging about working through some calculus busywork'
+pubDate: 'Jan 8 2023'
+---
+
+State-space models and linear (matrix-valued) RNNs
+have recently risen greatly in popularity,
+thanks to efficient hardware implementations.
+In particular, parallel associative scans allow one to compute
+reductions of sequences of length $$T$$ in $$O(\log T)$$ time
+on parallel hardware.
+
+Implementing these parallel reductions requires tremendous care:
+naively, they would require much more memory than a sequential $$O(T)$$ scan.
+In practice, people get around this via checkpointing and bespoke
+implementations of the forward and backward passes.
+Manual implementation of backward passes is painful -- this was the whole problem
+automatic differentiation is supposed to solve!
+
+In this blog post, we're going to try working through how to automatically
+write out the backwards pass of an associative scan.
+
+# 
