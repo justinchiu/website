@@ -15,7 +15,7 @@ Implementing these parallel reductions requires tremendous care:
 naively, they would require much more memory than a sequential $$O(T)$$ scan.
 In practice, people get around this via checkpointing and bespoke
 implementations of the forward and backward passes.
-Manual implementation of backward passes is painful -- this was the whole problem
+Manual implementation of backward passes is painful -- this is the whole problem
 automatic differentiation is supposed to solve!
 
 In this blog post, we're going to try working through how to automatically
@@ -90,14 +90,16 @@ as it is not clear what the associative operator would be.
 Let's trek all the way back to equation (3), and write things out in full
 for a couple steps:
 $$
-\begin{align}
 \frac{\partial L}{\partial x_i}
-&= \sum_{t=i}^T \frac{\partial L}{\partial h_t}\frac{\partial h_t}{\partial h_{t-1}}
-    \cdots\frac{\partial h_i}{\partial x_i}\\
-&= \begin{array}{ccccc}
+= \sum_{t=i}^T \frac{\partial L}{\partial h_t}\frac{\partial h_t}{\partial h_{t-1}}
+    \cdots\frac{\partial h_i}{\partial x_i}.
+$$
+
+
+$$
+\begin{array}{ccccc}
   & \frac{\partial h_i}{\partial x_i}^\top &  & & \frac{\partial L}{\partial h_i}\\
 + & \frac{\partial h_i}{\partial x_i}^\top & \frac{\partial h_{i+1}}{\partial h_i} & & \frac{\partial L}{\partial h_{i+1}}\\
 + & \frac{\partial h_i}{\partial x_i}^\top & \frac{\partial h_{i+1}}{\partial h_i} & \frac{\partial h_{i+2}}{\partial h_{i+1}} & \frac{\partial L}{\partial h_{i+2}}\\
 \end{array}
-\end{align}
 $$
