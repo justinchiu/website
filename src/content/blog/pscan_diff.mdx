@@ -108,3 +108,7 @@ and sum of terms taken from that product.
 On parallel hardware, the cumulative product can be computed in time $$O(\log T)$$,
 the multiplication of each term  of that cumulative product with the grad output can be computed in $$O(1)$$,
 and the sum reduction in $$O(\log T)$$ time.
+
+Of course, this is just for one term $\frac{\partial L}{\partial x_i}$.
+The sum reduction can be swapped for a cumulative sum reduction, and then scaled by the appropriate
+$$\frac{\partial h_i}{\partial x_j}$$.
