@@ -18,14 +18,14 @@ implementations of the forward and backward passes.
 Manual implementation of backward passes is painful -- this is the whole problem
 automatic differentiation is supposed to solve!
 
-In this blog post, we're going to try working through how to automatically
-write out the backwards pass of an associative scan.
+In this blog post, we're going to work through 
+the backwards pass of an associative scan.
 This post is inspired by a problem my advisor, Sasha,
 ran into when implementing state space models.
 
 # Parallel scans
-Say we have a sequence of inputs, $$x_1, x_2,\ldots,x_5$$, which can be vectors, matrices, etc.
-Given a sequence of partial product, i.e. the cumulative product,
+Say we have a sequence of inputs, $$x_1, x_2,\ldots,x_5$$, which can be vectors, flattened matrices, etc.
+Given a sequence of partial products, i.e. the cumulative product,
 $$
 \begin{equation}
 h_t = x_t \oplus h_{t-1} = x_t \oplus x_{t-1} \oplus \cdots \oplus x_1,
@@ -83,12 +83,11 @@ $$
 \end{equation}
 $$
 
-However, this does not easily admit a parallel scan implementation,
-as it is not clear what the associative operator would be.
-Actually...this is already a parallel scan ($$\otimes,\oplus$$). Need to rewrite this conclusion XD.
+The recurrence in equation (8) can be implemented with a parallel scan,
+then scaled in equation (9).
 
 # Grid form
-Let's trek all the way back to equation (3),
+We present another view. Let's trek all the way back to equation (3),
 $$
 \frac{\partial L}{\partial x_i}
 = \sum_{t=i}^T \frac{\partial L}{\partial h_t}\frac{\partial h_t}{\partial h_{t-1}}
@@ -114,10 +113,12 @@ Of course, this is just for one term $\frac{\partial L}{\partial x_i}$.
 The sum reduction can be swapped for a cumulative sum reduction, and then scaled by the appropriate
 $$\frac{\partial h_j}{\partial x_j}$$.
 
-# More efficient?
-Next question: can the backward pass be written as a single parallel scan,
-rather than two?
-Also, if anyone knows how to make katex arrays look better.
+# Generalization
+It turns out that the computation in both the recurrence and double scan
+actually did not rely on the associativity of the forward operator.
+It also turns out that this has been taken advantage of in [past work](https://arxiv.org/abs/1907.10134) (Wang, Bai, Pekhimenko, 2020).
+Curious if we can apply this to transformers in some way too!
+Maybe in the next blog post.
 
 # Acknowledgements
 Thanks to [Songlin Yang](https://sustcsonglin.github.io/) and [Sasha Rush](https://rush-nlp.com/) for catching bugs!
