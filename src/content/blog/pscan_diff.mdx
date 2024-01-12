@@ -116,6 +116,8 @@ $$\frac{\partial h_j}{\partial x_j}$$.
 # Generalization
 It turns out that the computation in both the recurrence and double scan
 actually did not rely on the associativity of the forward operator.
+Intuition: the derivative is the best linear approximation at a particular point,
+meaning even if the forward as not associative, the backward will be.
 It also turns out that this has been taken advantage of in [past work](https://arxiv.org/abs/1907.10134) (Wang, Bai, Pekhimenko, 2020).
 Curious if we can apply this to transformers in some way too!
 Maybe in the next blog post.
