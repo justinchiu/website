@@ -2,7 +2,7 @@
 title: 'What objective is STaR optimizing?'
 description: 'Everything is a latent variable model'
 pubDate: 'Apr 27 2024'
-draft: true
+draft: false
 ---
 
 [STaR: Bootstrapping Reasoning With Reasoning](https://arxiv.org/abs/2203.14465)
@@ -15,24 +15,32 @@ the normal [ELBo](https://en.wikipedia.org/wiki/Evidence_lower_bound)
 in latent variable modeling.
 If this is your first time seeing the ELBo, I'll also it along the way.
 
-STaR is a generative model that takes (word) problems $x$
+STaR is a generative model that takes word problems $x$
 and produces rationales $r$ then answers $y$:
 $$
 p(x,r,y) = p(y\mid x, r)p(r\mid x).
 $$
 Both models on the RHS are parameterized by the same LLM.
 
+Example from the [GSM8K dataset](https://huggingface.co/datasets/gsm8k): 
+
+| Problem | Rationale and answer |
+| --- | --- |
+| Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? | Natalia sold 48/2 = \<\<48/2=24\>\>24 clips in May. Natalia sold 48+24 = \<\<48+24=72\>\>72 clips altogether in April and May. #### 72 |
+
 Ideally, we would optimize the marginal likelihood (evidence)
 $$
 \log p(y\mid x) = \log \sum_r p(y,r\mid x).
 $$
-This is intractable, since it's impossible to marginalize over all rationales $r$.
+This is intractable, since it's intractasble to marginalize (sum) over all rationales $r$.
 
-Instead, we can optimize a lower bound on the marginal likelhood (evidence),
+Instead, we can optimize a tractable lower bound on the marginal likelhood (evidence),
 called the evidence lower bound (ELBo).
+We obtain the ELBo by introducing a new model, which will 
 We start by introducing a posterior rationalizer, $q(r \mid x,y)$,
 that potentially generates rationales given the problem and actual answer.
-We can use this model to bypass the intractable marginalization
+We can use this model as a crutch to bypass the intractable marginalization.
+In particular, if we 
 by introducing an auxiliary objective that maximizes the evidence
 but also encourages this posterior rationalizer to match the posterior
 of the generative model:
