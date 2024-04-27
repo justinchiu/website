@@ -89,14 +89,15 @@ It's possible that *ignoring the rationales that do not lead to correct sampled 
 counteracts this additional bias and variance in helpful ways*.
 
 ### ELBo (rationalizer)
-When employing the rationalizer $q(r \mid x,y)$ that sees answers before producing rationales, 
-we the objective should be the exact ELBo presented earlier,
+When employing the rationalizer $q(r \mid x,y^*)$ that sees true answers before producing rationales, 
+the objective should be the exact ELBo presented earlier,
 $$
-E_{q(r\mid x,y)}[\log p(y \mid x, r)] - KL[q(r \mid x,y) || p(r \mid x)].
+E_{q(r\mid x,y^*)}[\log p(y^* \mid x, r)] - KL[q(r \mid x,y^*) || p(r \mid x)].
 $$
 Is this what STaR optimizes?
 The answer is yes, with the same caveats as the previous approach.
-Namely, the expectation wrt $y$ is pulled out.
+Namely, the expectation wrt $y$ is pulled out, resulting in only rationales where
+the sampled $y = y^*$ being trained on, as opposed to weighting by $p(y^* \mid x, r)$.
 
 ## What is the point of analyzing things as latent variable models?
 Formal frameworks serve to guide development by making the tradeoffs between
