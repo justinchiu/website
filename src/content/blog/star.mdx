@@ -65,16 +65,16 @@ which describes STaR without the posterior rationalizer
 (slight difference: we focus on a single datapoint $x,y^*$ and ignore model parameters).
 $$
 \begin{equation}
-J(x, y) = E_{p(r,y \mid x)}[1(y=y^*)].
+J(x, y^*) = E_{p(r,y \mid x)}[1(y=y^*)].
 \end{equation}
 $$
 Let's try to recover this objective by
-setting the posterior rationalizer $q(r\mid x,y) = p(r\mid x)$ in the normal ELBo:
+setting the posterior rationalizer $q(r\mid x,y^*) = p(r\mid x)$ in the normal ELBo:
 $$
 \begin{align}
-&E_{q(r\mid x,y)}[\log p(y \mid x, r)] - KL[q(r \mid x,y) || p(r \mid x)]\\
-&= E_{p(r\mid x)}[\log p(y \mid x, r)] - KL[p(r \mid x) || p(r \mid x)]\\
-&= E_{p(r\mid x)}[\log p(y \mid x, r)]\\
+&E_{q(r\mid x,y^*)}[\log p(y^* \mid x, r)] - KL[q(r \mid x,y^*) || p(r \mid x)]\\
+&= E_{p(r\mid x)}[\log p(y^* \mid x, r)] - KL[p(r \mid x) || p(r \mid x)]\\
+&= E_{p(r\mid x)}[\log p(y^* \mid x, r)]\\
 &= E_{p(r\mid x)}[\log E_{p(y\mid x,r)}1(y = y^*)]\\
 &\ge E_{p(r,y\mid x)}[\log 1(y = y^*)].
 \end{align}
