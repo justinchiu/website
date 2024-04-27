@@ -12,40 +12,96 @@ for problems it had trouble solving before.
 
 In this post, I will show that the training objective of STaR is 
 the normal [ELBo](https://en.wikipedia.org/wiki/Evidence_lower_bound)
-in latent variable modeling.
-If this is your first time seeing the ELBo, I'll also it along the way.
+in latent variable modeling, which has been studied pretty extensively in QA and NLP in general.
+If this is your first time seeing the ELBo, I'll briefly introduce it along the way.
 
+## Problem setup
 STaR is a generative model that takes word problems $x$
-and produces rationales $r$ then answers $y$:
+and produces rationales $r$ and answers $y$:
 $$
 p(x,r,y) = p(y\mid x, r)p(r\mid x).
 $$
-Both models on the RHS are parameterized by the same LLM.
+Both models on the RHS can be parameterized by the same LLM.
 
 Example from the [GSM8K dataset](https://huggingface.co/datasets/gsm8k): 
 
-| Problem | Rationale and answer |
-| --- | --- |
-| Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May? | Natalia sold 48/2 = \<\<48/2=24\>\>24 clips in May. Natalia sold 48+24 = \<\<48+24=72\>\>72 clips altogether in April and May. #### 72 |
+**Problem**
+Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?
+
+**Rationale and Answer**
+Natalia sold 48/2 = \<\<48/2=24\>\>24 clips in May. Natalia sold 48+24 = \<\<48+24=72\>\>72 clips altogether in April and May. #### 72
 
 Ideally, we would optimize the marginal likelihood (evidence)
 $$
+\begin{equation}
 \log p(y\mid x) = \log \sum_r p(y,r\mid x).
+\end{equation}
 $$
-This is intractable, since it's intractasble to marginalize (sum) over all rationales $r$.
+This is intractable, since we have to marginalize (sum) over all rationales $r$.
 
 Instead, we can optimize a tractable lower bound on the marginal likelhood (evidence),
 called the evidence lower bound (ELBo).
-We obtain the ELBo by introducing a new model, which will 
-We start by introducing a posterior rationalizer, $q(r \mid x,y)$,
+We introduce a posterior rationalizer, $q(r \mid x,y)$,
 that potentially generates rationales given the problem and actual answer.
-We can use this model as a crutch to bypass the intractable marginalization.
-In particular, if we 
-by introducing an auxiliary objective that maximizes the evidence
-but also encourages this posterior rationalizer to match the posterior
-of the generative model:
+The posterior rationalizer serves as a crutch to bypass the intractable marginalization.
 $$
-\text{ELBo} := \log p(y\mid x) - KL[q(r\mid x,y) || p(r \mid x, y)].
+\begin{align}
+\text{ELBo} :=& \log p(y\mid x) - KL[q(r\mid x,y) || p(r \mid x, y)]\\
+=& E_{q(r\mid x,y)}[\log p(y \mid x, r)] - KL[q(r \mid x,y) || p(r \mid x)].
+\end{align}
 $$
 
+## How does this line up with the method presented in STaR?
+STaR presents two methods for training the generative model.
+The first is just by sampling rationales from the generative model, $p(r\mid x)$.
+The second is by employing a rationalizer that gives hints after seeing the answer,
+$q(r \mid x,y)$.
+We will show that both of these can be written as variations of the ELBo.
 
+### ELBo (generative model)
+Let's first take a look at sampling rationales from the generative model.
+We reproduce Equation (1) from STaR here,
+which describes STaR without the posterior rationalizer
+(slight difference: we focus on a single datapoint $x,y^*$ and ignore model parameters).
+$$
+\begin{equation}
+J(x, y) = E_{p(r,y \mid x)}[1(y=y^*)].
+\end{equation}
+$$
+Let's try to recover this objective by
+setting the posterior rationalizer $q(r\mid x,y) = p(r\mid x)$ in the normal ELBo:
+$$
+\begin{align}
+&E_{q(r\mid x,y)}[\log p(y \mid x, r)] - KL[q(r \mid x,y) || p(r \mid x)]\\
+&= E_{p(r\mid x)}[\log p(y \mid x, r)] - KL[p(r \mid x) || p(r \mid x)]\\
+&= E_{p(r\mid x)}[\log p(y \mid x, r)]\\
+&= E_{p(r\mid x)}[\log E_{p(y\mid x,r)}1(y = y^*)]\\
+&\ge E_{p(r,y\mid x)}[\log 1(y = y^*)].
+\end{align}
+$$
+There are two interesting things to note here:
+1. The rewards are log-scaled in this derivation, while they are not in STaR.
+2. Pulling out the expectation over $y$ results in an even looser lower bound on the ELBo, due to another application of
+Jensen's inequality.
+In general, pulling out the expectation through the log results in additional bias
+and applying a Monte Carlo approximation of the expectation results in additional variance.
+It's possible that *ignoring the rationales that do not lead to correct sampled answers
+counteracts this additional bias and variance in helpful ways*.
+
+### ELBo (rationalizer)
+When employing the rationalizer $q(r \mid x,y)$ that sees answers before producing rationales, 
+we the objective should be the exact ELBo presented earlier,
+$$
+E_{q(r\mid x,y)}[\log p(y \mid x, r)] - KL[q(r \mid x,y) || p(r \mid x)].
+$$
+Is this what STaR optimizes?
+The answer is yes, with the same caveats as the previous approach.
+Namely, the expectation wrt $y$ is pulled out.
+
+## What is the point of analyzing things as latent variable models?
+Formal frameworks serve to guide development by making the tradeoffs between
+different choices clear and composable.
+In the case of STaR, it could help us improve the method by analyzing the
+bias-variance tradeoffs of different design choices.
+It would also give us a principled way of conditioning on previous rationales,
+for example introducing a rationale editor $q(r \mid x, r_{\text{old}}, y)$.
