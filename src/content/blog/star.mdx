@@ -1,0 +1,43 @@
+---
+title: 'What objective is STaR optimizing?'
+description: 'Everything is a latent variable model'
+pubDate: 'Apr 27 2024'
+draft: true
+---
+
+[STaR: Bootstrapping Reasoning With Reasoning](https://arxiv.org/abs/2203.14465)
+is a cool paper.
+It presents a method for training a reasoning model to produce better reasoning chains
+for problems it had trouble solving before.
+
+In this post, I will show that the training objective of STaR is 
+the normal [ELBo](https://en.wikipedia.org/wiki/Evidence_lower_bound)
+in latent variable modeling.
+If this is your first time seeing the ELBo, I'll also it along the way.
+
+STaR is a generative model that takes (word) problems $x$
+and produces rationales $r$ then answers $y$:
+$$
+p(x,r,y) = p(y\mid x, r)p(r\mid x).
+$$
+Both models on the RHS are parameterized by the same LLM.
+
+Ideally, we would optimize the marginal likelihood (evidence)
+$$
+\log p(y\mid x) = \log \sum_r p(y,r\mid x).
+$$
+This is intractable, since it's impossible to marginalize over all rationales $r$.
+
+Instead, we can optimize a lower bound on the marginal likelhood (evidence),
+called the evidence lower bound (ELBo).
+We start by introducing a posterior rationalizer, $q(r \mid x,y)$,
+that potentially generates rationales given the problem and actual answer.
+We can use this model to bypass the intractable marginalization
+by introducing an auxiliary objective that maximizes the evidence
+but also encourages this posterior rationalizer to match the posterior
+of the generative model:
+$$
+\text{ELBo} := \log p(y\mid x) - KL[q(r\mid x,y) || p(r \mid x, y)].
+$$
+
+
