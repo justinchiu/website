@@ -110,7 +110,12 @@ D &= \{(r,y) | y = y^*\} & \text{[Filter out incorrect rationales]}\\
 &\text{Then train on }D
 \end{align}
 $$
-This corresponds to setting $q_{\text{star}}(r\mid x,y^*) = 1/2 p(r\mid x) + 1/2 q(r\mid x,y^*)$.
+This corresponds to setting
+$q_{\text{star}}(r\mid x,y^*) = 1/2 p(r\mid x) + 1/2 q(r\mid x,y^*)$.
+Note: STaR actually only adds the rationalizer's rationales if the prior's
+rationales are incorrect.
+This helps keep the rationales easy to model for the prior
+-- the KL term should achieve this though, if $q$ is trained through the ELBo.
 
 ## What is the point of analyzing things as latent variable models?
 Formal frameworks serve to guide development by making the tradeoffs between
