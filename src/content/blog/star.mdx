@@ -95,9 +95,22 @@ $$
 E_{q(r\mid x,y^*)}[\log p(y^* \mid x, r)] - KL[q(r \mid x,y^*) || p(r \mid x)].
 $$
 Is this what STaR optimizes?
-The answer is yes, with the same caveats as the previous approach.
+The short answer is yes, with the same caveats as the previous approach.
 Namely, the expectation wrt $y$ is pulled out, resulting in only rationales where
 the sampled $y = y^*$ being trained on, as opposed to weighting by $p(y^* \mid x, r)$.
+
+Let's translate the STaR pseudocode from Algorithm 1 in their paper
+and point out what each step corresponds to.
+At each iteration of STaR,
+$$
+\begin{align}
+r, y &\sim p(r,y\mid x) & \text{[Sample from prior]}\\
+r', y' &\sim q(r\mid x,y^*) & \text{[Sample from rationalizer]}\\
+D &= \{(r,y) | y = y^*\} & \text{[Filter out incorrect rationales]}\\
+&\text{Then train on }D
+\end{align}
+$$
+This corresponds to setting $q_{\text{star}}(r\mid x,y^*) = 1/2 p(r\mid x) + 1/2 q(r\mid x,y^*)$.
 
 ## What is the point of analyzing things as latent variable models?
 Formal frameworks serve to guide development by making the tradeoffs between
