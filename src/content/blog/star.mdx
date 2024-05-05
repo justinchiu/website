@@ -12,7 +12,8 @@ for problems it had trouble solving before.
 
 In this post, I will show that the training objective of STaR is 
 the normal [ELBo](https://en.wikipedia.org/wiki/Evidence_lower_bound)
-in latent variable modeling, which has been studied pretty extensively in QA and NLP in general.
+in latent variable modeling, which has been studied pretty extensively in both
+QA and NLP in general.
 
 ## Problem setup
 STaR is a generative model that takes word problems $x$
@@ -133,3 +134,4 @@ For example, if it is difficult to find a correct rationale
 even after conditioning on $y^*$,
 we could introduce a rationale editor $q(r \mid x, r_{\text{old}}, y)$
 that can incorporate feedback.
+
