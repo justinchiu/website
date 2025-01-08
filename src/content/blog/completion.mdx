@@ -1,0 +1,49 @@
+---
+title: 'Character prefix completion'
+description: 'Sampling given a seqwuence of characters as prefix'
+pubDate: 'Jan 2025'
+draft: true
+---
+I saw a fun post on twitter today, which lead to the following [blogpost](https://www.cursor.com/blog/cpc) from Cursor, a code generation startup.
+The problem outlined in their blogpost is roughly as follows.
+
+A common task in code generation is completion, where a robot must propose completions given a prefix sequence of characters.
+This is complicated by the fact that humans and robots operate with different text encodings.
+Humans type in characters (usually) while robots operate over subword tokens.
+This mismatch in encoding can lead to awkward situations if one is not careful.
+
+Here's an example. Consider the following sentence ([tokenizer visualizer](https://gpt-tokenizer.dev)):
+
+<div style="
+  display: flex; 
+  flex-wrap: wrap; 
+  font-family: 'Roboto Mono', sfmono-regular, consolas, 'liberation mono', menlo, courier, monospace; 
+  width: 100%; 
+  padding: 8px; 
+  border: 1px solid rgb(204, 204, 204); 
+  background-color: rgb(248, 248, 248); 
+  line-height: 1.5; 
+  align-content: flex-start;
+">
+  <span style="background-color: rgba(170, 153, 255, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">Welcome</span>
+  <span style="background-color: rgba(143, 255, 199, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;to</span>
+  <span style="background-color: rgba(255, 255, 153, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;g</span>
+  <span style="background-color: rgba(255, 179, 179, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">pt</span>
+  <span style="background-color: rgba(153, 204, 255, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">-token</span>
+  <span style="background-color: rgba(204, 255, 204, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">izer</span>
+  <span style="background-color: rgba(255, 229, 153, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">.</span>
+  <span style="background-color: rgba(255, 204, 204, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;Replace</span>
+  <span style="background-color: rgba(204, 255, 204, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;this</span>
+  <span style="background-color: rgba(153, 204, 255, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;with</span>
+  <span style="background-color: rgba(255, 255, 153, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;your</span>
+  <span style="background-color: rgba(143, 255, 199, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;text</span>
+  <span style="background-color: rgba(170, 204, 255, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;to</span>
+  <span style="background-color: rgba(255, 179, 179, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;see</span>
+  <span style="background-color: rgba(153, 204, 255, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;how</span>
+  <span style="background-color: rgba(204, 255, 204, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;token</span>
+  <span style="background-color: rgba(255, 255, 153, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">ization</span>
+  <span style="background-color: rgba(255, 229, 153, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">&nbsp;works</span>
+  <span style="background-color: rgba(143, 255, 199, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">.</span>
+</div>
+
+As you can see, segmentation according to tokens does not perfectly align with characters.
