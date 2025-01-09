@@ -70,3 +70,5 @@ The problem of conditional sampling given mismatched segmentation is a well-know
 in classic NLP.
 It is most prominent in latent segmentation models, such as hidden semi-Markov models.
 In the rest of this post, we will identify a minimal to solve this problem and provide some code.
+Our solution will require $O(T)$ forward passes of an LM,
+where $T$ is the largest number of characters in a token.
