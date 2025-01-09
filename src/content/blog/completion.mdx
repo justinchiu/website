@@ -57,9 +57,16 @@ We can visualize this with a cursor:
 ```
 Welcome to g|p
 ```
+where everything to the left of the cursor is fed as a prefix to the model, 
+and everything to the right leads to logit constraints in our language model's output distribution.
 In the worst case, you may want to backtrack all the way to the start of the current word!
+This can be visualized with multiple cursors:
+```
+Welcome to |g|p
+```
 
-This problem of conditional sampling given mismatched segmentation is a well-known problem
+Now, this is not a new problem.
+The problem of conditional sampling given mismatched segmentation is a well-known problem
 in classic NLP.
 It is most prominent in latent segmentation models, such as hidden semi-Markov models.
 In the rest of this post, we will identify a minimal to solve this problem and provide some code.
