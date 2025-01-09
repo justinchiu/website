@@ -72,3 +72,6 @@ It is most prominent in latent segmentation models, such as hidden semi-Markov m
 In the rest of this post, we will identify a minimal to solve this problem and provide some code.
 Our solution will require $O(T)$ forward passes of an LM,
 where $T$ is the largest number of characters in a token.
+
+# Problem setup
+We are given a character stream $x = x_1,x_2,\ldots,x_t$ 
