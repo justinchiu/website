@@ -2,7 +2,7 @@
 title: 'Character prefix completion'
 description: 'Sampling given a seqwuence of characters as prefix'
 pubDate: 'Jan 2025'
-draft: true
+draft: false
 ---
 I saw a fun post on twitter today, which lead to the following [blogpost](https://www.cursor.com/blog/cpc) from Cursor, a code generation startup.
 The problem outlined in their blogpost is roughly as follows.
@@ -47,3 +47,10 @@ Here's an example. Consider the following sentence ([tokenizer visualizer](https
 </div>
 
 As you can see, segmentation according to tokens does not perfectly align with characters.
+If we wanted to sample a completion given the prefix
+`Welcome to gp`, we would be in the middle of a token!
+
+The problem of conditional sampling given mismatched segmentation is a well-known problem
+in classic NLP.
+It is most prominent in latent segmentation models, such as hidden semi-Markov models.
+In the rest of this post, we will identify a minimal to solve this problem and provide some code.
