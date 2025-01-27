@@ -46,13 +46,13 @@ Here's an example. Consider the following sentence ([tokenizer visualizer](https
   <span style="background-color: rgba(143, 255, 199, 0.5); padding: 0px; border-radius: 3px; margin-right: 0px;">.</span>
 </div>
 
-As you can see, segmentation according to tokens does not perfectly align with characters.
+As you can see, token segmentations do not align with characters.
 If we wanted to sample a completion given the prefix
 `Welcome to gp`, we would be in the middle of a token!
 This hints at an obvious solution: backtrack a little, then only consider tokens
-that agree with the characters you've moved over.
+that agree with the observed characters.
 In this example, that would mean starting with the prefix `Welcome to g` and only considering
-tokens that start with `p`.
+next tokens that start with `p`.
 We can visualize this with a cursor:
 ```
 Welcome to g|p
@@ -64,14 +64,18 @@ This can be visualized with multiple cursors:
 ```
 Welcome to |g|p
 ```
+When sampling, we can simply compute the distribution over backtracked-cursors, constrain
+the next-token distribution to agree with the observed characters,
+then sample a token.
 
 Note that this is not a new problem.
-The problem of conditional sampling given mismatched segmentation is a well-known problem
+The problem of conditional sampling with mismatched segmentations is well-studied 
 in classic NLP.
 It is most prominent in latent segmentation models, such as hidden semi-Markov models.
-In the rest of this post, we will identify a minimal to solve this problem and provide some code.
-Our solution will require $O(T)$ forward passes of an LM,
-where $T$ is the largest number of characters in a token.
+
+In the rest of this post, we will give a minimal formalization of this problem, a solution,
+and (eventually) some code.
 
 # Problem setup
-We are given a character stream $x = x_1,x_2,\ldots,x_t$ 
+We are given a sequence of characters $x = x_1,x_2,\ldots,x_t$.
+Our goal is to 
