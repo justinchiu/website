@@ -18,7 +18,7 @@ Let's go straight to the math.
 
 The goal of supervised learning is to train a student policy $p(x)$ to clone the behaviour of a teacher $p^*(x).
 The teacher gives sample trajectories which serve as examples to teach the student.
-SFT searches over student policies to optimize. This is typically framed as minimizing the KL-divergence from the teacher to the student, which is equivalent to maximizing the log-likelihood of the teacher's data:
+SFT searches over student policies to minimize the KL-divergence from the teacher to the student, which is equivalent to maximizing the log-likelihood of the teacher's samples:
 
 $$
 \begin{align}
