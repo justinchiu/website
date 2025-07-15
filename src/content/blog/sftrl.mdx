@@ -7,7 +7,7 @@ draft: True
 
 There have been a few papers recently on learning from incorrect examples in verifiable domains: citations.
 Those papers have found that training on a larger number of incorrect examples can result in better performance than training on just positive examples.
-This are puzzling. Why would we ever want to train on incorrect examples?
+This is puzzling. Why would we ever want to train on incorrect examples?
 My gut says that correct/incorrect is the wrong thing. Instead, we should be asking: What's the advantage of any given datapoint?
 
 In this blog post, we will show that you can do better than training directly on incorrect examples.
@@ -16,17 +16,18 @@ and that we can do better by actually following RL basics.
 
 Let's go straight to the math.
 
-The goal of supervised learning is to train a student policy $p(x)$ to clone the behaviour of a teacher $p^*(x)$.
-The teacher gives demonstration trajectories $\{x_i\}$ which serve as examples to teach the student.
-SFT searches over student policies to optimize
+The goal of supervised learning is to train a student policy $p(x)$ to clone the behaviour of a teacher $p^*(x).
+The teacher gives sample trajectories which serve as examples to teach the student.
+SFT searches over student policies to optimize. This is typically framed as minimizing the KL-divergence from the teacher to the student, which is equivalent to maximizing the log-likelihood of the teacher's data:
 
-$$
+$
 \begin{align}
 \argmin_{p} KL[p^*(x) || p(x)]
 &= \argmin_p E_{p^*(x)}[\log p^*(x) - \log p(x)] \\
-&= -H[p^*(x)] - \argmax_p E_{p^*(x)}[ \log p(x)].
+&= \argmax_p E_{p^*(x)}[ \log p(x)].
 \end{align}
-$$
+$
+
 
 <details class="highlights">
 <summary><b>Tangent: KL vs Cross-Entropy</b></summary>
@@ -41,16 +42,17 @@ Imagine what the optimal student policy looks like for each equation when you on
 </details>
 
 This looks similar to off-policy policy gradient, where you optimize
-$$
+$
 \begin{align}
 \argmax_p E_{p(x)}[r(x)]
 &= \argmax_p \int_x p(x)r(x)\\
-&= \argmax_p \int_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
-&= \argmax_p E_{p^*(x)} \frac{1}{p^*(x)} p(x) r(x).
+&= \argmax_p \int_x p^*(x) \frac{p(x)}{p^*(x)} r(x)\\
+&= \argmax_p E_{p^*(x)}[\frac{p(x)}{p^*(x)} r(x)].
 \end{align}
-$$
+$
+
 Let's examine each of the three terms in equation (5), and contrast them with the rightmost term of equation (2).
-1. Importance weight denominator $1/p^*(x)$: Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
+1. Importance weight denominator $p^*(x)$: Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
 2. Importance weight numerator $p(x)$: This is $p(x)$ rather than the $\log p(x)$ you see in equation (2). Since they are monotonic transformations of another, this may not affect learning too much.
 3. Reward $r(x)$: In the SFT setting, the teacher examples are assumed to have reward $r(x)=1$. This doesn't make sense if you have the true reward function and the teacher examples do not have $r(x)=1$.
 
