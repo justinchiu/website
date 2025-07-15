@@ -1,0 +1,56 @@
+---
+title: 'SFT is RL'
+description: 'RL is better than SFT'
+pubDate: 'Jul 14 2025'
+draft: True
+---
+
+There have been a few papers recently on learning from incorrect examples in verifiable domains: citations.
+Those papers have found that training on a larger number of incorrect examples can result in better performance than training on just positive examples.
+This are puzzling. Why would we ever want to train on incorrect examples?
+My gut says that correct/incorrect is the wrong thing. Instead, we should be asking: What's the advantage of any given datapoint?
+
+In this blog post, we will show that you can do better than training directly on incorrect examples.
+We first show that supervised learning on incorrect examples is an instance of reinforcement learning (RL),
+and that we can do better by actually following RL basics.
+
+Let's go straight to the math.
+
+# Problem setup
+The goal of supervised learning is to train a student policy $p(x)$ to clone the behaviour of a teacher $p^*(x)$.
+The teacher gives demonstration trajectories $\{x_i\}$ which serve as examples to teach the student.
+SFT searches over student policies to optimize
+
+$$
+\begin{align}
+\argmin_{p} KL[p^*(x) || p(x)]
+&= \argmin_p E_{p^*(x)}[\log p^*(x) - \log p(x)] \\
+&= -H[p^*(x)] - \argmax_p E_{p^*(x)}[ \log p(x)].
+\end{align}
+$$
+
+<details>
+<summary>Tangent 1: KL vs Cross-Entropy</summary>
+The differences between equation (1) and (2) are interesting.
+We used to normally only see (2) in traditional ML, where we were learning from Human teachers.
+We usually do not have access to calibrated probabilities of human demonstrations.
+But nowadays, we have actually have a lot of teacher models, letting us optimize (1).
+Utilizing teacher probabilities might help with training sample complexity.
+Imagine what the optimal student policy looks like for each equation when you only have a single example from the teacher.
+</details>
+
+This looks similar to off-policy policy gradient, where you optimize
+$$
+\begin{align}
+\argmax_p E_{p(x)}[r(x)]
+&= \argmax_p \int_x p(x)r(x)\\
+&= \argmax_p \int_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
+&= \argmax_p E_{p^*(x)} \frac{r(x)}{p^*(x)} p(x).
+\end{align}
+$$
+There are three differences between equations (2) and (5).
+First, we have the reward $r(x)$. In the SFT setting, the teacher trajectories are assumed to have reward $r(x)=1$.
+Second, we have importance weight denominator $1/p^*(x)$. Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
+Third, the right-most term is $p(x)$ rather than $\log p(x)$. Since they are monotonic transformations of another, this may not affect learning too much.
+
+This gives an obvious way to improve over naive SFT on incorrect examples: Use the reward $r(x)$ when you can.
