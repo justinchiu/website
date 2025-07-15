@@ -59,4 +59,4 @@ Let's examine each of the three terms in equation (7) and contrast them with equ
 This gives an obvious way to improve over naive SFT on incorrect examples: Use the reward $r(x)$ when you can.
 In practice, you can add on the typical bells and whistles to your gradient estimator. This should look like a policy grad method that uses advantages, with the sub-optimal teacher
 demonstrations seeding the replay buffer along with some on-policy samples from $p(x)$.
-This would allow the model to mimic bad samples when the model itself is worse, but ignore those samples when the model is good enough.
+This would allow the model to mimic bad samples when the student is worse, but ignore those samples when the student is better.
