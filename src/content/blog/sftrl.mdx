@@ -45,12 +45,12 @@ $$
 \argmax_p E_{p(x)}[r(x)]
 &= \argmax_p \int_x p(x)r(x)\\
 &= \argmax_p \int_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
-&= \argmax_p E_{p^*(x)} \frac{r(x)}{p^*(x)} p(x).
+&= \argmax_p E_{p^*(x)} r(x)\frac{1}{p^*(x)} p(x).
 \end{align}
 $$
-There are three differences between equations (2) and (5).
-First, we have the reward $r(x)$. In the SFT setting, the teacher trajectories are assumed to have reward $r(x)=1$.
-Second, we have importance weight denominator $1/p^*(x)$. Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
-Third, the right-most term is $p(x)$ rather than $\log p(x)$. Since they are monotonic transformations of another, this may not affect learning too much.
+Let's examine each of the three terms in equation (5), and contrast them with the rightmost term of equation (2).
+1. Reward $r(x)$: In the SFT setting, the teacher trajectories are assumed to have reward $r(x)=1$.
+2. Importance weight denominator $1/p^*(x)$: Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
+3. Importance weight numerator $p(x)$: This is $p(x)$ rather than $\log p(x)$. Since they are monotonic transformations of another, this may not affect learning too much.
 
 This gives an obvious way to improve over naive SFT on incorrect examples: Use the reward $r(x)$ when you can.
