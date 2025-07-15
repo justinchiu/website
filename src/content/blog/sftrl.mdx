@@ -52,7 +52,7 @@ $$
 Let's examine each of the three terms in equation (5), and contrast them with the rightmost term of equation (2).
 1. Importance weight denominator $1/p^*(x)$: Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
 2. Importance weight numerator $p(x)$: This is $p(x)$ rather than the $\log p(x)$ you see in equation (2). Since they are monotonic transformations of another, this may not affect learning too much.
-3. Reward $r(x)$: In the SFT setting, the teacher examples are assumed to have reward $r(x)=1$. This doesn't make sense if you actually have a reward function and the teacher examples do not have reward 1.
+3. Reward $r(x)$: In the SFT setting, the teacher examples are assumed to have reward $r(x)=1$. This doesn't make sense if you actually have a reward function and the teacher examples do not have $r(x)=1$.
 
 This gives an obvious way to improve over naive SFT on incorrect examples: Use the reward $r(x)$ when you can.
 More realistically, this should look like a policy grad method that uses advantages, with the sub-optimal teacher
