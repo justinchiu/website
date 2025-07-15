@@ -22,9 +22,9 @@ SFT searches over student policies to minimize the KL-divergence from the teache
 
 $$
 \begin{align}
-\argmin_{p} KL[p^*(x) || p(x)]
-&= \argmin_p E_{p^*(x)}[\log p^*(x) - \log p(x)] \\
-&= \argmax_p E_{p^*(x)}[ \log p(x)].
+\argmin_{p} KL\left[p^*(x) || p(x)\right]
+&= \argmin_p E_{p^*(x)}\left[\log p^*(x) - \log p(x)\right] \\
+&= \argmax_p E_{p^*(x)}\left[ \log p(x)\right].
 \end{align}
 $$
 
@@ -47,7 +47,7 @@ $$
 \argmax_p E_{p(x)}[r(x)]
 &= \argmax_p \int_x p(x)r(x)\\
 &= \argmax_p \int_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
-&= \argmax_p E_{p^*(x)}[\frac{p(x)}{p^*(x)} r(x)].
+&= \argmax_p E_{p^*(x)}\left[\frac{p(x)}{p^*(x)} r(x)\right].
 \end{align}
 $$
 
