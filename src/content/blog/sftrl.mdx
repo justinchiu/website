@@ -20,13 +20,13 @@ The goal of supervised learning is to train a student policy $p(x)$ to clone the
 The teacher gives sample trajectories which serve as examples to teach the student.
 SFT searches over student policies to optimize. This is typically framed as minimizing the KL-divergence from the teacher to the student, which is equivalent to maximizing the log-likelihood of the teacher's data:
 
-$
+$$
 \begin{align}
 \argmin_{p} KL[p^*(x) || p(x)]
 &= \argmin_p E_{p^*(x)}[\log p^*(x) - \log p(x)] \\
 &= \argmax_p E_{p^*(x)}[ \log p(x)].
 \end{align}
-$
+$$
 
 
 <details class="highlights">
@@ -42,14 +42,14 @@ Imagine what the optimal student policy looks like for each equation when you on
 </details>
 
 This looks similar to off-policy policy gradient, where you optimize
-$
+$$
 \begin{align}
 \argmax_p E_{p(x)}[r(x)]
 &= \argmax_p \int_x p(x)r(x)\\
-&= \argmax_p \int_x p^*(x) \frac{p(x)}{p^*(x)} r(x)\\
+&= \argmax_p \int_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
 &= \argmax_p E_{p^*(x)}[\frac{p(x)}{p^*(x)} r(x)].
 \end{align}
-$
+$$
 
 Let's examine each of the three terms in equation (5), and contrast them with the rightmost term of equation (2).
 1. Importance weight denominator $p^*(x)$: Since the trajectories are sampled from $p^*(x)$ it's reasonable to assume that the samples are high probability under $p^*$ and this can pretty safely be ignored.
