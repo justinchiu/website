@@ -28,14 +28,16 @@ $$
 \end{align}
 $$
 
-<details>
-<summary>Tangent 1: KL vs Cross-Entropy</summary>
+<details class="highlights">
+<summary><b>Tangent 1: KL vs Cross-Entropy</b></summary>
+<div style="padding-top: 10px;">
 The differences between equation (1) and (2) are interesting.
 We used to normally only see (2) in traditional ML, where we were learning from Human teachers.
 We usually do not have access to calibrated probabilities of human demonstrations.
-But nowadays, we have actually have a lot of teacher models, letting us optimize (1).
+But nowadays, we have actually have a lot of teacher models in the form of open weight LLMs, letting us optimize (1).
 Utilizing teacher probabilities might help with training sample complexity.
 Imagine what the optimal student policy looks like for each equation when you only have a single example from the teacher.
+</div>
 </details>
 
 This looks similar to off-policy policy gradient, where you optimize
