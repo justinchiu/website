@@ -55,3 +55,5 @@ Let's examine each of the three terms in equation (5), and contrast them with th
 3. Reward $r(x)$: In the SFT setting, the teacher trajectories are assumed to have reward $r(x)=1$.
 
 This gives an obvious way to improve over naive SFT on incorrect examples: Use the reward $r(x)$ when you can.
+More realistically, this should look like a policy grad method that uses advantages, with the sub-optimal teacher
+demonstrations seeding the replay buffer along with some on-policy samples from $p(x)$.
