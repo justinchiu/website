@@ -46,8 +46,8 @@ This looks similar to [off-policy policy gradient](https://arxiv.org/abs/1205.48
 $$
 \begin{align}
 &\argmax_p E_{p(x)}[r(x)]\\
-&= \argmax_p \int_x p(x)r(x)\\
-&= \argmax_p \int_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
+&= \argmax_p \sum_x p(x)r(x)\\
+&= \argmax_p \sum_x p(x) \frac{p^*(x)}{p^*(x)} r(x)\\
 &= \argmax_p E_{p^*(x)}\left[\frac{p(x)}{p^*(x)} r(x)\right].
 \end{align}
 $$
