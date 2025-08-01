@@ -8,4 +8,16 @@ draft: False
 In a previous blog post, I wrote a bit about one path towards [merging SFT and RL](https://justintchiu.com/blog/sftrl/).
 That previous post relied on importance sampling, a method of approximating samples from a target distribution using an importance distribution.
 But importance sampling is kind of a pain.
+Let's look at the math of [off-policy policy gradient](https://arxiv.org/abs/1205.4839) (OPPG) a bit to see what can go wrong.
+
+OPPG optimizes the expected reward, but with trajectories from an importance distribution $q(x)$
+$$
+\begin{align}
+&\argmax_p E_{p(x)}[r(x)]\\
+&= \argmax_p \sum_x p(x)r(x)\\
+&= \argmax_p \sum_x p(x) \frac{q(x)}{q(x)} r(x)\\
+&= \argmax_p E_{q(x)}\left[\frac{p(x)}{q(x)} r(x)\right].
+\end{align}
+$$
+
 
