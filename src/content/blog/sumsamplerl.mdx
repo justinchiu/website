@@ -1,13 +1,22 @@
 ---
-title: 'Sum-and-Sample RL'
-description: 'How important is importance sampling?'
-pubDate: 'Jul 28 2025'
+title: 'Sum-and-Sample RL: Replay Buffers'
+description: 'The math behind replay buffers'
+pubDate: 'Aug 4 2025'
 draft: False
 ---
 
-In a previous blog post, I wrote a bit about one path towards [merging SFT and RL](https://justintchiu.com/blog/sftrl/).
-That previous post relied on importance sampling, a method of approximating samples from a target distribution using an importance distribution.
-But importance sampling is kind of a pain.
+Reinforcement learning is thought to work best when on-policy.
+This means learning from actions sampled from the current policy.
+But this approach can be very sample-inefficient if the policy is initially crap.
+In this blog post, I will explore one simple method for learning from off-policy samples.
+
+Note: This is related to previous blog post, where I wrote a bit about one path towards [merging SFT and RL](https://justintchiu.com/blog/sftrl/).
+The previous post relied on importance sampling, a method of approximating samples from a target distribution using an importance distribution.
+But importance sampling is very tricky, as it introduces a tricky hyperparameter: the importance distribution.
+
+## Policy gradient
+
+## Off-policy policy gradient
 Let's look at the math of [off-policy policy gradient](https://arxiv.org/abs/1205.4839) (OPPG) a bit to see what can go wrong.
 
 OPPG optimizes the expected reward, but with trajectories from an importance distribution $q(x)$
@@ -20,4 +29,5 @@ $$
 \end{align}
 $$
 
-
+## Sum-and-sample gradient estimator
+[paper](https://arxiv.org/abs/2502.09890), coin termed [here](https://arxiv.org/abs/1903.06059)
