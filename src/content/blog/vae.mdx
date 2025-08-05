@@ -17,7 +17,7 @@ In this post we will introduce the math of LVMs, how to train them, and derive v
 This post is longer than my usual posts and aims to help you reason through the problem solving process of variational inference.
 Ideally this post would make high quality data for a reasoning LLM.
 
-# 1. Problem Setup
+# Problem Setup
 We need to model the following generative process:
 Take an action $x$ then receive an observation $y$.
 We achieve this by proposing a model $p(x,y) = p(y|x)p(x)$,
@@ -46,7 +46,7 @@ Rather than coming up with an answer to a math question, we are trying to recrea
 The latent action $x$ is a natural language specification of the program.
 </details>
 
-# 2. Attempt 1: Brute force gradient estimation
+# Gradient estimation attempt 1: Brute force
 If $p$ is parameterized by a transformer, you have to optimize the loss via gradient descent.
 However, since computing the loss is difficult, we need to find a way to approximate the gradient of the loss.
 Looking at the loss in equation (2), there's no really obvious approximation approach yet.
@@ -118,9 +118,12 @@ $$
 We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick earlier in the derivation (exercise for the reader, see footnote for a big hint[^hint]). This is mostly clear in hindsight, after we see what the expetation looks like. The tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
 </details>
 
-## Aside: Log-scaled rewards
+<details class="highlights">
+<summary><b>Aside: Log-scaled rewards</b></summary>
+Todo
+</details>
 
-# 3. VAEs
+# VAEs
 
 [^examples]: I'll save examples for another post, maybe.
 [^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $y = (y_1, y_2, \ldots)$ caused by complex action $x = (x_1, x_2, \ldots)$. You could then make conditional independence assumptions in the model $p(y|x) = \prod_i p(y_i|x_i)$.
