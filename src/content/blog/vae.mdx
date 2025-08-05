@@ -21,7 +21,7 @@ Ideally this post would make high quality data for a reasoning LLM.
 We need to model the following generative process:
 Take an action $x$ then receive an observation $y$.
 We achieve this by proposing a model $p(x,y) = p(y|x)p(x)$,
-and training it on a dataset consisting of a single observations $y$ (WLOG [^WLOG]).
+and training it on a dataset consisting of a single observation $y$ (WLOG [^WLOG]).
 This mean maximizing the log marginal likelihood or evidence:
 $$
 \begin{align}
