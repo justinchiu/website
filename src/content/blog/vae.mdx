@@ -1,6 +1,6 @@
 ---
 title: 'Variational Autoencoders from First Principles'
-description: 'Latent variable models require RL'
+description: 'Brute-forcing VAE math'
 pubDate: 'Aug 4 2025'
 draft: true
 ---
@@ -14,8 +14,8 @@ In order to train a LVM, you have to consider all the latent things in order to 
 If that sounds like reinforcement learning, that's because it is!
 In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch along the way.
 
-This post is slightly longer than usual and aims to help you reason through the problem solving process of variational inference.
-Maybe this is basically an attempt at doing some data annotation for reasoning LLMs.
+This post is longer than my usual posts and aims to help you reason through the problem solving process of variational inference.
+Ideally this post would make high quality data for a reasoning LLM.
 
 # 1. Problem Setup
 We need to model the following generative process:
@@ -115,7 +115,7 @@ $$
 
 <details class="highlights">
 <summary><b>Exercise: Simplifying the derivation</b></summary>
-We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick at equation 5 instead of the product rule (exercise for the reader[^hint]). This is mostly clear in hindsight, and the tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
+We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick at equation 5 instead of the product rule (exercise for the reader, see footnote for a big hint[^hint]). This is mostly clear in hindsight, and the tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
 </details>
 
 ## Aside: Log-scaled rewards
@@ -124,4 +124,4 @@ We can greatly simplify the derivation of the exact gradient estimator by applyi
 
 [^examples]: I'll save examples for another post, maybe.
 [^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $y = (y_1, y_2, \ldots)$ caused by complex action $x = (x_1, x_2, \ldots)$. You could then make conditional independence assumptions in the model $p(y|x) = \prod_i p(y_i|x_i)$.
-[^hint]: $\nabla \log p(y|x) + \nabla \log p(x) = \nabla \log p(x,y)$
+[^hint]: Big hint: $\nabla \log p(y|x) + \nabla \log p(x) = \nabla \log p(x,y)$
