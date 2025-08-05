@@ -5,17 +5,20 @@ pubDate: 'Aug 4 2025'
 draft: true
 ---
 
-Latent variable models (LVM) are my favorite topic.
-While they are rarely actually the key to making things work, they provide a pretty universal framework for formalizing things.
+Latent variable models (LVM) are my favorite thing in machine learning.
+They describe the unobserved processes that generate data.
+While they are rarely the key to making things work, they provide a pretty universal thought framework for formalizing things.
 This makes talking about a wide variety of things really easy! [^examples]
-Unfortunately, that's kind of where its usefulness ends.
-LVMs are pretty computationally intensive to train.
-In order to train a LVM, you have to consider all the latent things in order to find best ones.
+Unfortunately, that's kind of where the usefulness of LVMs end.
+In reality, LVMs are really computationally intensive to train.
+In order to train a LVM, you have to consider all the different ways of generating data in order to find the best one.
 If that sounds like reinforcement learning, that's because it is!
 
-In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch along the way.
-This post is longer than my usual posts and aims to help you reason through the problem solving process of variational inference.
-Ideally this post would make high quality data for a reasoning LLM.
+Let's start with an example. TODO
+
+
+In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch as a way to reason about approximation tradeoffs along the way.
+This post is longer than usual and aims to help you reason through the problem solving process of variational inference.
 
 # Problem setup
 We need to model the following generative process:
@@ -39,13 +42,8 @@ $$
 
 Computing this term is intractable if the space of $x$ is really large.
 
-<details class="highlights">
-<summary><b>Example: Chain of thought</b></summary>
-Let's consider an unconditional variant of chain of thought.
-Rather than coming up with an answer to a math question, we are trying to recreate a Python program unprompted.
-The latent action $x$ is a natural language specification of the program.
-TODO
-</details>
+# Good expectations
+TODO: Section on what makes something easy to approximate.
 
 # Gradient estimation attempt 1: Brute force
 If $p$ is parameterized by a transformer, you have to optimize the loss via gradient descent.
