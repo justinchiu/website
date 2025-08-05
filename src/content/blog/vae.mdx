@@ -72,6 +72,8 @@ $$
 </details>
 It looks like we are getting somewhere with the first term in the summand,
 as it seems pretty close to being written as an expectation.
+There are just some pesky terms lying around that we need to clean up.
+We can try pushing the derivative further.
 A classic tool for rewriting gradients as expectations is the log derivative trick:
 $$
 \nabla \log p(y|x) = \frac{1}{p(y|x)} \nabla p(y|x) \implies \nabla p(y|x) = p(y|x) \nabla \log p(y|x).
