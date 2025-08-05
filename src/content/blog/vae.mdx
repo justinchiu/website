@@ -52,8 +52,8 @@ However, since computing the loss is difficult, we need to find a way to approxi
 Looking at the loss in equation (2), there's no really obvious approximation approach yet.
 
 Since there isn't a clear path forward, let's just try brute force.
-We will compute the gradient and see if we can make progress.
 As a general rule, approximating an intractable sum requires rewriting that sum as an expectation.
+We will push the gradient through and see if an expectation falls out.
 
 $$
 \begin{align}
