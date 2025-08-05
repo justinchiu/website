@@ -118,12 +118,21 @@ $$
 We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick earlier in the derivation (exercise for the reader, see footnote for a big hint[^hint]). This is mostly clear in hindsight, after we see what the expetation looks like. The systematic tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
 </details>
 
+Todo on explaining what $p(x|y)$ is and why its hard to sample from.
+What happens if we just replace it with something else?
+
+# REINFORCE
+Replace $p(x|y)$ with $p(x)$. How can we reason about this?
+
 <details class="highlights">
 <summary><b>Aside: Log-scaled rewards</b></summary>
 Todo
 </details>
 
 # VAEs
+Adding a new term to the evidence to make this more principled.
+Want this term to drop out to zero when things are finished.
+$$\log p(y) - KL[q(x|y) || p(x|y)]$$
 
 [^examples]: I'll save examples for another post, maybe.
 [^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $y = (y_1, y_2, \ldots)$ caused by complex action $x = (x_1, x_2, \ldots)$. You could then make conditional independence assumptions in the model $p(y|x) = \prod_i p(y_i|x_i)$.
