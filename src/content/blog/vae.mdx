@@ -1,0 +1,127 @@
+---
+title: 'Variational Autoencoders from First Principles'
+description: 'Latent variable models require RL'
+pubDate: 'Aug 4 2025'
+draft: true
+---
+
+Latent variable models (LVM) are my favorite topic.
+While they are rarely actually the key to making things work, they provide a pretty universal framework for formalizing things.
+This makes talking about a wide variety of things really easy! [^examples]
+Unfortunately, that's kind of where its usefulness ends.
+LVMs are pretty computationally intensive to train.
+In order to train a LVM, you have to consider all the latent things in order to find best ones.
+If that sounds like reinforcement learning, that's because it is!
+In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch along the way.
+
+This post is slightly longer than usual and aims to help you reason through the problem solving process of variational inference.
+Maybe this is basically an attempt at doing some data annotation for reasoning LLMs.
+
+# 1. Problem Setup
+We need to model the following generative process:
+Take an action $x$ then receive an observation $y$.
+We achieve this by proposing a model $p(x,y) = p(y|x)p(x)$,
+and training it on a dataset consisting of a single observations $y$ (WLOG [^WLOG]).
+This mean maximizing the log marginal likelihood or evidence:
+$$
+\begin{align}
+\max_p \log p(y)
+&= \max_p \log \sum_x p(x,y)\\
+&=\max_p \log \sum_x p(y|x)p(x).
+\end{align}
+$$
+
+<details class="highlights">
+<summary><b>Derivation steps</b></summary>
+- (1) Total probability $p(y) = \sum_x p(x,y)$
+- (2) Chain rule $p(x,y) = p(y|x)p(x)$
+</details>
+
+Computing this term is intractable if the space of $x$ is really large.
+
+<details class="highlights">
+<summary><b>Example: Chain of thought</b></summary>
+Let's consider an unconditional variant of chain of thought.
+Rather than coming up with an answer to a math question, we are trying to recreate a Python program unprompted.
+The latent action $x$ is a natural language specification of the program.
+</details>
+
+# 2. Attempt 1: Brute force gradient estimation
+If $p$ is parameterized by a transformer, you have to optimize the loss via gradient descent.
+However, since computing the loss is difficult, we need to find a way to approximate the gradient of the loss.
+Looking at the loss in equation (2), there's no really obvious approximation approach yet.
+
+Since there isn't a clear path forward, let's just try brute force.
+We will compute the gradient and see if we can make progress.
+As a general rule, approximating an intractable sum requires rewriting that sum as an expectation.
+
+$$
+\begin{align}
+\nabla \log p(y)
+&= \frac{1}{p(y)}\nabla p(y)\\
+&= \frac{1}{p(y)}\nabla \sum_x p(x,y)\\
+&= \frac{1}{p(y)} \sum_x p(x)\nabla p(y|x) + p(y|x)\nabla p(x)
+\end{align}
+$$
+<details class="highlights">
+<summary><b>Derivation steps</b></summary>
+- (3) Derivative of log
+- (4) Total probability
+- (5) Chain rule and product rule
+</details>
+It looks like we are getting somewhere with the first term in the summand,
+as it seems pretty close to being written as an expectation.
+A classic tool for rewriting gradients as expectations is the log derivative trick:
+$$
+\nabla \log p(y|x) = \frac{1}{p(y|x)} \nabla p(y|x) \implies \nabla p(y|x) = p(y|x) \nabla \log p(y|x).
+$$
+We can use this to simplify the first term:
+$$
+\begin{align}
+\frac{1}{p(y)} \sum_x p(x)\nabla p(y|x)
+&= \sum_x \frac{p(x)}{p(y)} p(y|x) \nabla \log p(y|x)\\
+&= \sum_x \frac{p(y|x)p(x)}{p(y)} \nabla \log p(y|x)\\
+&= E_{p(x|y)} \nabla \log p(y|x)
+\end{align}
+$$
+<details class="highlights">
+<summary><b>Derivation steps</b></summary>
+- (6) Log-derivative trick
+- (7) Distribute
+- (8) Conditional probability
+</details>
+
+
+Similarly, we can simplify the second term:
+$$
+\begin{align}
+\frac{1}{p(y)} \sum_x p(y|x)\nabla p(x)
+&= \frac{1}{p(y)} \sum_x p(y|x) p(x) \nabla \log p(x)\\
+&= \sum_x \frac{p(y|x)p(x)}{p(y)} \nabla \log p(x)\\
+&= E_{p(x|y)}\left[ \nabla \log p(x)\right]
+\end{align}
+$$
+
+<details class="highlights">
+<summary><b>Derivation steps</b></summary>
+- (9) Log-derivative trick
+- (10) Distribute
+- (11) Conditional probability
+</details>
+Combining both terms yields
+$$
+\nabla \log p(y) = E_{p(x|y)} \left[\nabla \log p(y|x) + \nabla \log p(x)\right].
+$$
+
+<details class="highlights">
+<summary><b>Exercise: Simplifying the derivation</b></summary>
+We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick at equation 5 instead of the product rule (exercise for the reader[^hint]). This is mostly clear in hindsight, and the tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
+</details>
+
+## Aside: Log-scaled rewards
+
+# 3. VAEs
+
+[^examples]: I'll save examples for another post, maybe.
+[^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $y = (y_1, y_2, \ldots)$ caused by complex action $x = (x_1, x_2, \ldots)$. You could then make conditional independence assumptions in the model $p(y|x) = \prod_i p(y_i|x_i)$.
+[^hint]: $\nabla \log p(y|x) + \nabla \log p(x) = \nabla \log p(x,y)$
