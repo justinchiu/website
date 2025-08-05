@@ -17,7 +17,7 @@ In this post we will introduce the math of LVMs, how to train them, and derive v
 This post is longer than my usual posts and aims to help you reason through the problem solving process of variational inference.
 Ideally this post would make high quality data for a reasoning LLM.
 
-# Problem Setup
+# Problem setup
 We need to model the following generative process:
 Take an action $x$ then receive an observation $y$.
 We achieve this by proposing a model $p(x,y) = p(y|x)p(x)$,
@@ -120,14 +120,14 @@ We can greatly simplify the derivation of the exact gradient estimator by applyi
 
 Todo on explaining what $p(x|y)$ is and why its hard to sample from.
 What happens if we just replace it with something else?
-
-# REINFORCE
-Replace $p(x|y)$ with $p(x)$. How can we reason about this?
+In particular, it would be nice to replace $p(x|y)$ with the easy-to-sample $p(x)$.
 
 <details class="highlights">
 <summary><b>Aside: Log-scaled rewards</b></summary>
 Todo
 </details>
+
+How can we reason about the quality of the approximation?
 
 # VAEs
 Adding a new term to the evidence to make this more principled.
