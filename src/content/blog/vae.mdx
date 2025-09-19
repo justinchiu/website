@@ -6,47 +6,48 @@ draft: true
 ---
 
 Latent variable models (LVM) are my favorite thing in machine learning.
-They describe the unobserved processes that generate data.
+They learn the unobserved processes that generate data.
 While they are rarely the key to making things work, they provide a pretty universal thought framework for formalizing things.
-This makes talking about a wide variety of things really easy! [^examples]
-Unfortunately, that's kind of where the usefulness of LVMs ended in the past.
-In reality, LVMs are really computationally intensive to train.
+This makes talking about and checking the correctness of a wide variety of things really easy! [^examples]
+Unfortunately, LVMs are really computationally intensive to train.
 In order to train a LVM, you have to consider all the different ways of generating data in order to find the best one.
 If that sounds like reinforcement learning, that's because it is!
-TODO say that LVMs are going to be even more important now though with LLMs?
 
-Let's start with an example. TODO
-
-
-In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch as a way to reason about approximation tradeoffs along the way.
-This post is longer than usual and aims to help you reason through the problem solving process of amortized variational inference.
+In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch.
+This post is longer than usual and aims to walk you through the problem solving process of training models that reason about the unknown.
 
 # Problem setup
-We need to model the following generative process:
-Take an action $x$ then receive an observation $y$.
-We achieve this by proposing a model $p(x,y) = p(y|x)p(x)$,
-and training it on a dataset consisting of a single observation $y$ (WLOG [^WLOG]).
-This mean maximizing the log marginal likelihood or evidence:
+We model the following generative process:
+Sample a latent variable $z$ then generate an observation $x$.
+We achieve this by proposing a model $p(x,z) = p(x|z)p(z)$,
+and training it on a dataset consisting of a single observation $x$ (WLOG [^WLOG]).
+This means maximizing the log marginal likelihood or evidence:
 $$
 \begin{align}
-\max_p \log p(y)
-&= \max_p \log \sum_x p(x,y)\\
-&=\max_p \log \sum_x p(y|x)p(x).
+\max_p \log p(x)
+&= \max_p \log \sum_z p(x,z)\\
+&=\max_p \log \sum_z p(x|z)p(z).
 \end{align}
 $$
 
 <details class="highlights">
 <summary><b>Derivation steps</b></summary>
-- (1) Total probability $p(y) = \sum_x p(x,y)$
-- (2) Chain rule $p(x,y) = p(y|x)p(x)$
+- (1) Total probability $p(x) = \sum_z p(x,z)$
+- (2) Model definition $p(x,z) = p(x|z)p(z)$
 </details>
 
-Computing this term is intractable if the space of $x$ is really large.
+Computing this sum is intractable if the space of $z$ is really large.
+Optimizing the evidence then becomes a game of approximation.
+Since we cannot optimize it directly, can we propose surrogate losses
+that are correlated with the evidence?
+Our goal is to derive the following:
+1. A surrogate objective, gradient estimator pair
+2. The relationship between the surrogate objective and the evidence
+3. The quality and computational cost of the gradient estimator
 
-# Good expectations
-TODO: Section on what makes something easy to approximate.
+# Gradient estimation attempt 0: Enumeration
 
-# Gradient estimation attempt 1: Brute force
+# Gradient estimation attempt 1: Deriving a Monte Carlo estimator
 If $p$ is parameterized by a transformer, you have to optimize the loss via gradient descent.
 However, since computing the loss is difficult, we need to find a way to approximate the gradient of the loss.
 Looking at the loss in equation (2), there's no really obvious approximation approach yet.
@@ -57,10 +58,10 @@ We will push the gradient through and see if an expectation falls out.
 
 $$
 \begin{align}
-\nabla \log p(y)
-&= \frac{1}{p(y)}\nabla p(y)\\
-&= \frac{1}{p(y)}\nabla \sum_x p(x,y)\\
-&= \frac{1}{p(y)} \sum_x p(x)\nabla p(y|x) + p(y|x)\nabla p(x)
+\nabla \log p(x)
+&= \frac{1}{p(x)}\nabla p(x)\\
+&= \frac{1}{p(x)}\nabla \sum_z p(x,z)\\
+&= \frac{1}{p(x)} \sum_z p(z)\nabla p(x|z) + p(x|z)\nabla p(z)
 \end{align}
 $$
 <details class="highlights">
@@ -75,15 +76,15 @@ There are just some pesky terms lying around that we need to clean up.
 We can try pushing the derivative further.
 A classic tool for rewriting gradients as expectations is the log derivative trick:
 $$
-\nabla \log p(y|x) = \frac{1}{p(y|x)} \nabla p(y|x) \implies \nabla p(y|x) = p(y|x) \nabla \log p(y|x).
+\nabla \log p(x|z) = \frac{1}{p(x|z)} \nabla p(x|z) \implies \nabla p(x|z) = p(x|z) \nabla \log p(x|z).
 $$
 We can use this to simplify the first term:
 $$
 \begin{align}
-\frac{1}{p(y)} \sum_x p(x)\nabla p(y|x)
-&= \sum_x \frac{p(x)}{p(y)} p(y|x) \nabla \log p(y|x)\\
-&= \sum_x \frac{p(y|x)p(x)}{p(y)} \nabla \log p(y|x)\\
-&= E_{p(x|y)} \nabla \log p(y|x)
+\frac{1}{p(x)} \sum_z p(z)\nabla p(x|z)
+&= \sum_z \frac{p(z)}{p(x)} p(x|z) \nabla \log p(x|z)\\
+&= \sum_z \frac{p(x|z)p(z)}{p(x)} \nabla \log p(x|z)\\
+&= E_{p(z|x)} \nabla \log p(x|z)
 \end{align}
 $$
 <details class="highlights">
@@ -97,10 +98,10 @@ $$
 Similarly, we can simplify the second term:
 $$
 \begin{align}
-\frac{1}{p(y)} \sum_x p(y|x)\nabla p(x)
-&= \frac{1}{p(y)} \sum_x p(y|x) p(x) \nabla \log p(x)\\
-&= \sum_x \frac{p(y|x)p(x)}{p(y)} \nabla \log p(x)\\
-&= E_{p(x|y)}\left[ \nabla \log p(x)\right]
+\frac{1}{p(x)} \sum_z p(x|z)\nabla p(z)
+&= \frac{1}{p(x)} \sum_z p(x|z) p(z) \nabla \log p(z)\\
+&= \sum_z \frac{p(x|z)p(z)}{p(x)} \nabla \log p(z)\\
+&= E_{p(z|x)}\left[ \nabla \log p(z)\right]
 \end{align}
 $$
 
@@ -112,17 +113,17 @@ $$
 </details>
 Combining both terms yields
 $$
-\nabla \log p(y) = E_{p(x|y)} \left[\nabla \log p(y|x) + \nabla \log p(x)\right].
+\nabla \log p(x) = E_{p(z|x)} \left[\nabla \log p(x|z) + \nabla \log p(z)\right].
 $$
 
 <details class="highlights">
 <summary><b>Exercise: Simplifying the derivation</b></summary>
-We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick earlier in the derivation (exercise for the reader, see footnote for a big hint[^hint]). This is mostly clear in hindsight, after we see what the expetation looks like. The systematic tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
+We can greatly simplify the derivation of the exact gradient estimator by applying the log-derivative trick earlier in the derivation (exercise for the reader, see footnote for a big hint[^hint]). This is mostly clear in hindsight, after we see what the expectation looks like. The systematic tool of brute-force derivation is more useful for a first approach. Let's not pretend things are elegant on the first attempt.
 </details>
 
-Todo on explaining what $p(x|y)$ is and why its hard to sample from.
+Todo on explaining what $p(z|x)$ is and why its hard to sample from.
 What happens if we just replace it with something else?
-In particular, it would be nice to replace $p(x|y)$ with the easy-to-sample $p(x)$.
+In particular, it would be nice to replace $p(z|x)$ with the easy-to-sample $p(z)$.
 
 <details class="highlights">
 <summary><b>Aside: Log-scaled rewards</b></summary>
@@ -131,11 +132,11 @@ Todo
 
 How can we reason about the quality of the approximation?
 
-# Gradient estimation with help from sir VAE
+# Expanding the search space: A surrogate loss
 Adding a new term to the evidence to make this more principled.
 Want this term to drop out to zero when things are finished.
-$$\log p(y) - KL[q(x|y) || p(x|y)]$$
+$$\log p(x) - KL[q(z|x) || p(z|x)]$$
 
 [^examples]: I'll save examples for another post, maybe.
-[^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $y = (y_1, y_2, \ldots)$ caused by complex action $x = (x_1, x_2, \ldots)$. You could then make conditional independence assumptions in the model $p(y|x) = \prod_i p(y_i|x_i)$.
-[^hint]: Big hint: $\nabla \log p(y|x) + \nabla \log p(x) = \nabla \log p(x,y)$
+[^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $x = (x_1, x_2, \ldots)$ generated from complex latent $z = (z_1, z_2, \ldots)$. You could then make conditional independence assumptions in the model $p(x|z) = \prod_i p(x_i|z_i)$.
+[^hint]: Big hint: $\nabla \log p(x|z) + \nabla \log p(z) = \nabla \log p(x,z)$
