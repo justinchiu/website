@@ -1,0 +1,73 @@
+---
+title: 'RL review'
+description: 'RL review'
+pubDate: 'Aug 19 2025'
+draft: True
+---
+
+The goal of reinforcement learning is to find a policy $\pi(y\mid x)$ that answers question $x$ with answer $y$, achieving high rewards $r(y)$.
+We want to find a $\pi$ that maximizes
+$$
+\begin{equation}
+J[\pi] = E_{x\sim p(x)}\left[E_{y\sim \pi(y\mid x)}[r(y)]\right].
+\end{equation}
+$$
+
+# Policy gradient
+The now standard method to search for a policy is via policy gradient:
+$$
+\begin{align}
+\nabla J[\pi] &= \nabla E_{p(x)}\left[\sum_{y} \pi(y\mid x)r(y)\right]\\
+&= E_{p(x)}\left[\sum_y r(y) \nabla \pi(y\mid x)\right]\\
+&= E_{p(x)}\left[\sum_y r(y) \pi(y\mid x) \nabla \log \pi(y\mid x)\right]\\
+&= E_{p(x)}\left[E_{\pi(y\mid x)} r(y) \nabla \log \pi(y\mid x)\right]\\
+\end{align}
+$$
+We use this gradient estimator since it is intractable to compute the expectation 
+wrt $\pi(y\mid x)$ exactly.
+The score-function derivative is instead used to rewrite the gradient of an expectation
+as the expected gradient.
+
+There is an issue with using this estimator in practice:
+The policy gradient estimator may suffer from high variance.
+This is caused by the variance in the rewards obtained by the sampled trajectories.
+
+# Policy gradient with baseline
+One source of variance is caused by problem difficulty.
+Let's say $r(y) \in \{0,1\}$,
+And you have two problems of very different difficulties.
+One is very hard for the current policy, and the other is easy.
+The reward will always be 1 for the easy problem, causing the model to update in that direction.
+If we lessen the reward for already-solved problems, the gradient won't vary as much across problem difficulties.
+
+We do this by introducing a problem-dependent baseline $b(x)$ and using the gradient estimator
+$$
+\begin{equation}
+E_{p(x)}\left[E_{\pi(y\mid x)} (r(y)-b(x)) \nabla \log \pi(y\mid x)\right].
+\end{equation}
+$$
+Note that since $b(y)$ does not depend on $y$, we have
+$$
+\begin{align}
+E_{p(x)}\left[E_{\pi(y\mid x)} b(x) \nabla \log \pi(y\mid x)\right]
+&= E_{p(x)}\left[b(x) E_{\pi(y\mid x)} \nabla \log \pi(y\mid x)\right]\\
+&= E_{p(x)}\left[b(x)\nabla  E_{\pi(y\mid x)} \log \pi(y\mid x)\right]\\
+&= E_{p(x)}\left[b(x)\nabla  1\right]\\
+&= E_{p(x)}\left[b(x) \cdot 0\right],
+\end{align}
+$$
+giving an unbiased estimator.
+
+A common baseline is a Monte Carlo estimate of the expected reward.
+This is unbiased as long as it does not depend on the sampled $y$, leading to the leave-one-out estimator.
+
+GRPO additional scales the reward by the standard deviation of the Monte Carlo samples.
+This has the effect of penalizing problems where the policy is inconsistent and emphasizing
+problems where the model is consistent but with outliers.
+
+# Off-policy policy gradient
+Another issue encountered in practice is instability due to off-policy learning.
+Since sampling is expensive, it is common to take multiple gradient steps for each batch of samples
+to prevent sampling from dominating compute.
+In order to prevent instability, methods like PPO and GRPO do two things:
+add a KL regularization term and clip the likelihood ratio.
