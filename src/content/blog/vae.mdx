@@ -6,22 +6,22 @@ draft: true
 ---
 
 Latent variable models (LVM) are my favorite thing in machine learning.
-They learn the unobserved processes that generate data.
-While they are rarely the key to making things work, they provide a pretty universal thought framework for formalizing things.
-This makes talking about and checking the correctness of a wide variety of things really easy! [^examples]
+Their purpose is to model the unobserved processes that generate data.
+While they are rarely the key to making things work, they provide a pretty universal thought framework for formalizing ML prolems.
+This makes talking about and checking the correctness of a wide variety of things really easy!
 Unfortunately, LVMs are really computationally intensive to train.
 In order to train a LVM, you have to consider all the different ways of generating data in order to find the best one.
 If that sounds like reinforcement learning, that's because it is!
 
 In this post we will introduce the math of LVMs, how to train them, and derive variational autoencoders from scratch.
-This post is longer than usual and aims to walk you through the problem solving process of training models that reason about the unknown.
+This post is longer than usual (for me) and aims to walk you through the problem solving process of training models that reason about the unknown.
 
 # Problem setup
 We model the following generative process:
-Sample a latent variable $z$ then generate an observation $x$.
-We achieve this by proposing a model $p(x,z) = p(x|z)p(z)$,
-and training it on a dataset consisting of a single observation $x$ (WLOG [^WLOG]).
-This means maximizing the log marginal likelihood or evidence:
+Sample a latent variable $z\sim p(z)$ then generate an observation $x\sim p(x|z)$,
+yielding a model $p(x,z) = p(x|z)p(z)$.
+Our goal is to train this model on a dataset consisting of a single observation $x$ (WLOG [^WLOG]), without observing $z$.
+This requires maximizing the log marginal likelihood or evidence, where we marginalize over all possible $z$:
 $$
 \begin{align}
 \max_p \log p(x)
@@ -38,12 +38,12 @@ $$
 
 Computing this sum is intractable if the space of $z$ is really large.
 Optimizing the evidence then becomes a game of approximation.
-Since we cannot optimize it directly, can we propose surrogate losses
-that are correlated with the evidence?
-Our goal is to derive the following:
-1. A surrogate objective, gradient estimator pair
+Since we cannot optimize the objective, our goal is to find surrogate losses
+that are correlated with the evidence.
+
+We will explore a series of surrogate objectives, deriving:
 2. The relationship between the surrogate objective and the evidence
-3. The quality and computational cost of the gradient estimator
+1. Gradient estimators to optimize each surrogate objective
 
 # Gradient estimation attempt 0: Enumeration
 
@@ -137,6 +137,5 @@ Adding a new term to the evidence to make this more principled.
 Want this term to drop out to zero when things are finished.
 $$\log p(x) - KL[q(z|x) || p(z|x)]$$
 
-[^examples]: I'll save examples for another post, maybe.
 [^WLOG]: You could specialize this to datasets with multiple independent examples as follows. First, by cramming in all examples into a single observation, yielding a single complex observation $x = (x_1, x_2, \ldots)$ generated from complex latent $z = (z_1, z_2, \ldots)$. You could then make conditional independence assumptions in the model $p(x|z) = \prod_i p(x_i|z_i)$.
 [^hint]: Big hint: $\nabla \log p(x|z) + \nabla \log p(z) = \nabla \log p(x,z)$
