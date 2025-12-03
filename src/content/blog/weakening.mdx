@@ -149,7 +149,55 @@ This has several issues:
 - In realistic MoE architectures, the sum over experts is expensive or intractable, so it is natural to approximate it by Monte Carlo over routes; as we explain below, this introduces a **nested Monte Carlo estimator** with poor bias–variance behaviour (in the sense of Rainforth et al., 2018).
 - The router can exploit the log-sum-exp structure in undesirable ways (for example, collapsing to a few experts or inducing brittle routing changes), because its gradients are driven by a “soft” mixture rather than the actual routing decisions used to act.
 
-At a high level, a nested Monte Carlo estimator arises whenever we wish to estimate a quantity of the form
+From a sequence-level RL perspective, the nesting can be seen explicitly.
+Consider an episodic setting with trajectories $\tau = (s_{1:T}, a_{1:T})$ and a single return $R(\tau)$ shared across all timesteps.
+If we keep the routes (routing replay), a complete-data policy-gradient estimator has the form
+$$
+\nabla J_\text{cd}
+  = \mathbb{E}_{\tau,z_{1:T}}
+    \left[
+      R(\tau)
+      \sum_{t=1}^T
+        \nabla \log \rho_\phi(z_t \mid s_t)
+        + \nabla \log \pi_\theta(a_t \mid s_t,z_t)
+    \right],
+$$
+which is a single expectation over $(\tau,z_{1:T})$ and therefore non-nested.
+If we discard $z_{1:T}$ and instead work with the marginal MoE policy, the exact marginal gradient can be written as
+$$
+\nabla J_\text{marg}
+  = \mathbb{E}_{\tau}
+    \left[
+      R(\tau)
+      \sum_{t=1}^T
+        \nabla \log \sum_{z_t}
+          \rho_\phi(z_t \mid s_t)\pi_\theta(a_t \mid s_t,z_t)
+    \right].
+$$
+Approximating each inner sum over $z_t$ by Monte Carlo leads to an estimator of the form
+$$
+\hat{\nabla J}
+  = \frac{1}{N}\sum_{n=1}^N
+      R(\tau^{(n)})
+      \sum_{t=1}^T
+        \nabla \log \hat{\mu}_t(\tau^{(n)}),
+$$
+where, for each trajectory $\tau^{(n)} = (s_{1:T}^{(n)},a_{1:T}^{(n)})$ and timestep $t$,
+$$
+\hat{\mu}_t(\tau^{(n)})
+  = \frac{1}{M_t}\sum_{m=1}^{M_t}
+      \rho_\phi(z_{t,m}^{(n)} \mid s_t^{(n)})
+      \pi_\theta(a_t^{(n)} \mid s_t^{(n)}, z_{t,m}^{(n)}),
+  \quad z_{t,m}^{(n)} \sim \rho_\phi(\cdot \mid s_t^{(n)}).
+$$
+This matches the generic nested structure
+$$
+\mathbb{E}_{x}\big[F(\mu(x))\big],
+$$
+with $x$ identified with trajectories $\tau$, and with the inner objects $\{\mu_t(\tau)\}_{t=1}^T$ defined by expectations over routes at each timestep.
+There is a single **outer** expectation over trajectories and, for each timestep $t$, an **inner** expectation over route choices $z_t$, all coupled through the shared return $R(\tau)$.
+
+At a more abstract level, a nested Monte Carlo estimator arises whenever we wish to estimate a quantity of the form
 $$
 \mathbb{E}_{x}\big[F(\mu(x))\big],
 \qquad
@@ -169,24 +217,7 @@ $$
   \quad x^{(n)} \sim p(x),
 $$
 is *nested*: it contains an inner Monte Carlo loop inside an outer one.
-
-From a latent-variable perspective, this weakening can be seen directly by comparing **complete-data** and **marginal** objectives.
-Suppose we have latent-variable samples $(x,z)$ and a complete-data objective of the form
-$$
-J_\text{cd}
-  = \mathbb{E}_{x,z}\big[G(x,z)\big],
-$$
-which is a single expectation and can be estimated with a non-nested Monte Carlo estimator.
-If we choose to discard $z$ and work only with the marginal $p(x)$, we rewrite this as
-$$
-\begin{align}
-J_\text{marg}
-  &= \mathbb{E}_{x}\Big[\mathbb{E}_{z \mid x}\big[G(x,z)\big]\Big]\\
-  &= \mathbb{E}_{x}\big[F(\mu(x))\big],
-\end{align}
-$$
-where $\mu(x) := \mathbb{E}_{z \mid x}[G(x,z)]$ and $F$ is the identity.
-If the inner expectation $\mu(x)$ cannot be computed exactly and must be approximated by Monte Carlo, $J_\text{marg}$ acquires the nested structure above.
+From the latent-variable perspective, passing from the complete-data objective $J_\text{cd} = \mathbb{E}_{x,z}[G(x,z)]$ to its marginalized form $J_\text{marg} = \mathbb{E}_x[\mathbb{E}_{z\mid x}[G(x,z)]]$ and then approximating the inner expectation $\mathbb{E}_{z\mid x}$ by Monte Carlo is precisely what introduces this nested structure.
 In this sense, marginalizing $z$ from $p(x,z)$ to $p(x)$ when we still have access to samples of $z$ is a *weakening* of the estimator: it trades a single-level objective on complete data for a nested objective on partial data.
 
 In contrast, routing replay keeps the complete-data objective from Section 2:
