@@ -5,12 +5,14 @@ pubDate: 'Dec 3 2025'
 draft: true
 ---
 
-Mixture-of-Experts (MoE) policies in reinforcement learning (RL) appear structurally simple: a routing network selects an expert, which then produces the action.
-However, training such policies in a stable and data-efficient way is non-trivial.
-One widely used stabilization technique is **routing replay**: logging the router’s decision $z_t$ into the replay buffer and training on those stored routes, instead of recomputing routes on the fly.
+Reinforcement learning with Mixture-of-Experts (MoE) policies is inherently a **latent-variable** problem: at each timestep the policy samples a latent route $z_t$ and then an action $a_t$, and that routing sequence affects all future states.
+If we discard the sampled routing path and try to train only on the marginal mixture over experts, the natural approximations give rise to a **nested Monte Carlo estimator** in the sense of Rainforth et al. (2019)[^rainforth2019], which has provably poor statistical properties.
+The central claim of this note is that to avoid this nested-estimator pathology, **one must perform routing replay**: log the sampled routes and train on the resulting complete-data objective.
 
-This note explains *why* routing replay is conceptually well-motivated by viewing MoE RL as a **latent-variable learning problem** in which the latent variable is the expert index.
-Under this lens, routing replay corresponds to turning the expert index from an unobserved latent into an observed variable, thereby replacing a difficult marginal mixture objective with a well-behaved complete-data objective.
+The remainder of the post unpacks this statement:
+we first formalize MoE RL as a latent-variable model (Sections 1–2),
+then characterize the nested estimator that arises when routes are marginalized and approximated (Section 4.1),
+and finally explain why routing replay restores a single-level, well-behaved estimator.
 
 ---
 
@@ -66,67 +68,7 @@ This is exactly the same structure as maximum likelihood in a mixture model with
 
 ---
 
-## 3. Variational latent-variable view
-
-We now adopt standard latent-variable tools.
-Introduce an **inference distribution** (variational posterior) over the route:
-$$
-q_\psi(z_t \mid s_t, a_t).
-$$
-
-Consider a single term $\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)$ in the policy gradient objective.
-We first rewrite the mixture by multiplying and dividing by $q_\psi$:
-$$
-\begin{align}
-\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
-&= \log \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t)\\
-&= \log \sum_{z_t} \frac{q_\psi(z_t \mid s_t, a_t)}{q_\psi(z_t \mid s_t, a_t)}
-                  \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
-\end{align}
-$$
-
-Treating $q_\psi(\cdot \mid s_t,a_t)$ as a distribution over $z_t$ and applying Jensen’s inequality to the log yields the usual ELBO:
-$$
-\begin{align}
-\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
-&\ge
-\mathbb{E}_{q_\psi(z_t \mid s_t, a_t)}
-\left[
-  \log \rho_\phi(z_t \mid s_t)
-  + \log \pi_{\theta}(a_t \mid s_t, z_t)
-  - \log q_\psi(z_t \mid s_t, a_t)
-\right].
-\end{align}
-$$
-
-Substituting this bound back into the policy-gradient objective gives a **weighted ELBO**:
-$$
-\begin{align}
-L_{\text{ELBO-PG}}(\theta,\phi,\psi)
-  &:= -\mathbb{E}_{t}
-    \left[
-      \hat{A}_t\,
-      \mathbb{E}_{q_\psi(z_t \mid s_t,a_t)}
-      \left[
-        \log \rho_\phi(z_t \mid s_t)
-        + \log \pi_\theta(a_t \mid s_t, z_t)
-        - \log q_\psi(z_t \mid s_t, a_t)
-      \right]
-    \right].
-\end{align}
-$$
-
-Interpretation:
-
-- We obtain a **latent-variable RL** formulation in which the latent $z_t$ is the route.
-- The advantage $\hat{A}_t$ plays the role of a **per-sample weight** on the ELBO.
-- If $q_\psi(z_t \mid s_t, a_t) = p_{\theta,\phi}(z_t \mid s_t, a_t)$ (the true posterior), this bound is tight and we recover the original marginal objective.
-
-In other words, MoE RL with marginalization over $z_t$ can be viewed as **variational learning with a latent route**.
-
----
-
-## 4. What routing replay actually does
+## 3. What routing replay actually does
 
 We now relate this formulation to the practical routing replay technique used in RL.
 In **routing replay**, you store the router’s decision $z_t$ at data collection time:
@@ -178,7 +120,7 @@ This is exactly the **complete-data objective** you would write down for a mixtu
 
 ---
 
-## 5. Why routing replay is (practically) necessary
+## 4. Why routing replay is (practically) necessary
 
 We can now address the central question: *why is routing replay important for MoEs in RL?*
 
@@ -193,7 +135,7 @@ From the latent-variable perspective:
 
   This has several issues:
   - Credit assignment to the router becomes poorly conditioned: every expert contributes inside the log-sum, even if only one expert actually produced the action.
-  - When the log-sum is approximated, the resulting estimator is *nested* (see Section 5.1), leading to biased and statistically inefficient gradient estimates for a fixed compute budget.
+  - When the log-sum is approximated, the resulting estimator is *nested* (see Section 4.1), leading to biased and statistically inefficient gradient estimates for a fixed compute budget.
   - The router can exploit the log-sum-exp structure in undesirable ways (for example, collapsing to a few experts or inducing brittle routing changes), because its gradients are driven by a “soft” mixture rather than the actual routing decisions used to act.
 
 - **With routing replay**  
@@ -216,7 +158,7 @@ If one discards the router decisions and trains only on the marginal mixture, on
 
 This perspective helps explain why, in practice, MoE RL setups that do not log and replay routes often behave poorly, whereas routing replay tends to stabilize training: it replaces a nested, ill-conditioned latent-variable objective with a tractable complete-data one.
 
-### 5.1 Variance and nested Monte Carlo
+### 4.1 Variance and nested Monte Carlo
 
 The discussion above focused on optimization and credit assignment.
 The dominant practical difficulty, however, is statistical: naive approximations to the marginal objective turn the problem into a **nested Monte Carlo** estimation task.
@@ -245,6 +187,18 @@ $$
 $$
 is *nested*: it contains an inner Monte Carlo loop inside an outer one.
 Rainforth et al. (2019)[^rainforth2019] show that, for fixed total budget $T = N M$, such estimators are generally biased and exhibit worse mean-squared-error scaling than non-nested estimators, because the nonlinearity $F$ amplifies inner Monte Carlo error.
+
+It is useful to contrast this with standard (non-nested) Monte Carlo.
+With a single expectation $\mathbb{E}[h(X)]$ and total budget $T$ samples, the mean-squared error (MSE) of the usual Monte Carlo estimator scales as
+$$
+\mathrm{MSE}_\text{non-nested} = O(T^{-1}).
+$$
+In the nested setting, even with an optimal choice of inner and outer sample sizes $(M,N)$ subject to $T = N M$, Rainforth et al. show that
+$$
+\mathrm{MSE}_\text{nested} = O(T^{-2/3}).
+$$
+Equivalently, to reach a target accuracy $\varepsilon$, a non-nested estimator requires $T = O(\varepsilon^{-2})$, whereas a nested estimator requires $T = O(\varepsilon^{-3})$.
+This gap quantifies how much “weakening” the estimator by introducing an inner Monte Carlo loop degrades its statistical efficiency.
 
 In the MoE RL setting, there are two natural granularities for $x$.
 At the per-decision level, $x$ can be taken as $(s_t,a_t)$ and $y$ as the expert index $z_t$, with $F$ given by the composition with the logarithm and policy-gradient weighting.
