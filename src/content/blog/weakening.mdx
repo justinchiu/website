@@ -37,38 +37,28 @@ $$
   = \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
 $$
 
-So $z_t$ is literally a **latent variable** in a mixture model: we don’t feed it to the environment, but it controls which expert produced the action.
-
----
-
-## 2. Policy gradient on the mixture (marginalizing $z$)
-
-In an actor–critic setup, a standard objective is
-
+So $z_t$ is literally a **latent variable** in a mixture model: we do not feed it to the environment, but it controls which expert produced the action.
+In an actor–critic setup, a standard policy-gradient objective against this mixture is
 $$
 L_\text{PG}(\theta,\phi)
   = -\mathbb{E}_{t}\left[\hat{A}_t\,
       \log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)\right],
 $$
-
 where $\hat{A}_t$ is an advantage estimate.
-Plugging in the mixture:
-
+Substituting the mixture form gives
 $$
 \log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
   = \log \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
 $$
+Conceptually, this means:
+- We are maximizing a **marginal likelihood** over actions in which the expert index $z_t$ is unobserved.
+- Gradients must flow through a **log-sum over experts**, which is expensive and can be unstable when there are many experts or when routing is discrete.
 
-Conceptually:
-
-- You’re maximizing a **marginal likelihood** over actions where the expert index \(z_t\) is unobserved.
-- Gradients must flow through a **log-sum over experts**, which tends to be expensive and can be unstable, especially with discrete routing.
-
-This is exactly the same structure as maximum likelihood in a mixture model with unknown component assignments.
+This is exactly the same structure as maximum likelihood in a mixture model with unknown component assignments, and it is this marginal form that will give rise to a nested estimator when approximated.
 
 ---
 
-## 3. What routing replay actually does
+## 2. Routing replay as complete-data training
 
 We now relate this formulation to the practical routing replay technique used in RL.
 In **routing replay**, you store the router’s decision $z_t$ at data collection time:
@@ -120,51 +110,49 @@ This is exactly the **complete-data objective** you would write down for a mixtu
 
 ---
 
-## 4. Why routing replay is (practically) necessary
+## 3. No routing replay and the nested estimator
 
-We can now address the central question: *why is routing replay important for MoEs in RL?*
+We can now address the central question: *what goes wrong if we do not perform routing replay?*
+From the latent-variable perspective, discarding the sampled routes $z_t$ and attempting to learn only from the marginal mixture
+$$
+\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
+  = \log \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t)
+$$
+forces us to optimize
+$$
+-\hat{A}_t \log \sum_z \rho_\phi(z \mid s_t)\pi_\theta(a_t \mid s_t,z),
+$$
+i.e., a marginal mixture likelihood with a **discrete latent** and a log-sum over experts.
 
-From the latent-variable perspective:
+This has several issues:
+- Credit assignment to the router becomes poorly conditioned: every expert contributes inside the log-sum, even if only one expert actually produced the action.
+- In realistic MoE architectures, the sum over experts is expensive or intractable, so it is natural to approximate it by Monte Carlo over routes; as we discuss in Section 4, this introduces a **nested Monte Carlo estimator** with poor bias–variance behaviour.
+- The router can exploit the log-sum-exp structure in undesirable ways (for example, collapsing to a few experts or inducing brittle routing changes), because its gradients are driven by a “soft” mixture rather than the actual routing decisions used to act.
 
-- **Without routing replay**  
-  You’re directly optimizing
-  $$
-  -\hat{A}_t \log \sum_z \rho_\phi(z \mid s_t)\pi_\theta(a_t \mid s_t,z),
-  $$
-  i.e., a marginal mixture likelihood with a **discrete latent** and a log-sum over experts.
-
-  This has several issues:
-  - Credit assignment to the router becomes poorly conditioned: every expert contributes inside the log-sum, even if only one expert actually produced the action.
-  - When the log-sum is approximated, the resulting estimator is *nested* (see Section 4.1), leading to biased and statistically inefficient gradient estimates for a fixed compute budget.
-  - The router can exploit the log-sum-exp structure in undesirable ways (for example, collapsing to a few experts or inducing brittle routing changes), because its gradients are driven by a “soft” mixture rather than the actual routing decisions used to act.
-
-- **With routing replay**  
-  You optimize
-  $$
-  -\hat{A}_t \big(
-    \log \rho_\phi(z_t \mid s_t)
-    + \log \pi_\theta(a_t \mid s_t,z_t)
-  \big),
-  $$
-  i.e., a **complete-data latent-variable objective** where $z_t$ is treated as known.
-
-  This provides several advantages:
-  - Clean credit assignment: the router is trained on the *actual* route that was taken when the action was executed and the return was observed.
-  - A well-behaved gradient estimator: there is no need to differentiate through a log-sum over experts; only the log-probabilities of a single expert and its route are involved.
-  - Conceptual alignment with standard latent-variable training: the setting corresponds to an “E-step already done” regime in which component assignments are observed.
+In contrast, routing replay keeps the complete-data objective from Section 2:
+$$
+-\hat{A}_t \big(
+  \log \rho_\phi(z_t \mid s_t)
+  + \log \pi_\theta(a_t \mid s_t,z_t)
+\big),
+$$
+which has several advantages:
+- Clean credit assignment: the router is trained on the *actual* route that was taken when the action was executed and the return was observed.
+- A well-behaved gradient estimator: there is no need to differentiate through a log-sum over experts; only the log-probabilities of a single expert and its route are involved.
+- Conceptual alignment with standard latent-variable training: the setting corresponds to an “E-step already done” regime in which component assignments are observed.
 
 In summary, routing replay is the MoE RL analogue of **training on complete data instead of marginalizing over unknown latents**.
 If one discards the router decisions and trains only on the marginal mixture, one implicitly tackles a more difficult latent-variable optimization problem whose natural approximations are *nested estimators* with poor statistical properties.
 
 This perspective helps explain why, in practice, MoE RL setups that do not log and replay routes often behave poorly, whereas routing replay tends to stabilize training: it replaces a nested, ill-conditioned latent-variable objective with a tractable complete-data one.
 
-### 4.1 Variance and nested Monte Carlo
+## 4. Quantitative analysis of the nested estimator
 
 The discussion above focused on optimization and credit assignment.
 The dominant practical difficulty, however, is statistical: naive approximations to the marginal objective turn the problem into a **nested Monte Carlo** estimation task.
 To make this precise, it is useful to characterize the **variance** of the corresponding gradient estimators.
 
-#### Generic background: nested estimators
+### 4.1 Generic background: nested estimators
 
 At a high level, a nested Monte Carlo estimator arises whenever we wish to estimate a quantity of the form
 $$
