@@ -36,16 +36,20 @@ $$
 - (2) Model definition $p(x,z) = p(x|z)p(z)$
 </details>
 
-Computing this sum is intractable if the space of $z$ is really large.
+The most convenient approach to optimizing the evidence is to compute it exactly
+and compute gradients using automatic differentiation.
+Howeer, computing this sum is intractable if the space of $z$ is really large.
 Optimizing the evidence then becomes a game of approximation.
 Since we cannot optimize the objective, our goal is to find surrogate losses
-that are correlated with the evidence.
+that are correlated with the evidence and also admit computationally cheap gradient estimators
+for optimization.
 
 We will explore a series of surrogate objectives, deriving:
-2. The relationship between the surrogate objective and the evidence
-1. Gradient estimators to optimize each surrogate objective
+1. The relationship between the surrogate objective and the evidence
+2. Gradient estimators to optimize each surrogate objective
 
-# Gradient estimation attempt 0: Enumeration
+# Background: Principles of gradient estimation
+
 
 # Gradient estimation attempt 1: Deriving a Monte Carlo estimator
 If $p$ is parameterized by a transformer, you have to optimize the loss via gradient descent.

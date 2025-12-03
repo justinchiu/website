@@ -1,0 +1,321 @@
+---
+title: 'Why Routing Replay in MoE RL is Necessary'
+description: 'Unf***ing Your RL Gradient Estimator'
+pubDate: 'Dec 3 2025'
+draft: true
+---
+
+Mixture-of-Experts (MoE) policies in reinforcement learning (RL) appear structurally simple: a routing network selects an expert, which then produces the action.
+However, training such policies in a stable and data-efficient way is non-trivial.
+One widely used stabilization technique is **routing replay**: logging the router’s decision $z_t$ into the replay buffer and training on those stored routes, instead of recomputing routes on the fly.
+
+This note explains *why* routing replay is conceptually well-motivated by viewing MoE RL as a **latent-variable learning problem** in which the latent variable is the expert index.
+Under this lens, routing replay corresponds to turning the expert index from an unobserved latent into an observed variable, thereby replacing a difficult marginal mixture objective with a well-behaved complete-data objective.
+
+---
+
+## 1. MoE policy as a latent-variable model
+
+We consider an MoE policy in an RL setting with state $s_t$, action $a_t$, and reward $r_t$ at time $t$.
+In addition to these observed variables, the policy includes a latent routing variable $z_t \in \{1,\dots,K\}$ indicating which expert is selected at that timestep.
+
+The router (gating network) defines a distribution over experts $\rho_\phi(z_t \mid s_t)$, and the expert policies define conditional action distributions $\pi_\theta(a_t \mid s_t, z_t)$.
+
+The **joint policy** over $(a_t, z_t)$ is
+
+$$
+\pi_{\theta,\phi}(a_t, z_t \mid s_t)
+  = \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
+$$
+
+The **marginal action policy** (what the environment actually sees) is the MoE mixture:
+
+$$
+\bar{\pi}_{\theta,\phi}(a_t \mid s_t)
+  = \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
+$$
+
+So $z_t$ is literally a **latent variable** in a mixture model: we don’t feed it to the environment, but it controls which expert produced the action.
+
+---
+
+## 2. Policy gradient on the mixture (marginalizing $z$)
+
+In an actor–critic setup, a standard objective is
+
+$$
+L_\text{PG}(\theta,\phi)
+  = -\mathbb{E}_{t}\left[\hat{A}_t\,
+      \log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)\right],
+$$
+
+where $\hat{A}_t$ is an advantage estimate.
+Plugging in the mixture:
+
+$$
+\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
+  = \log \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
+$$
+
+Conceptually:
+
+- You’re maximizing a **marginal likelihood** over actions where the expert index \(z_t\) is unobserved.
+- Gradients must flow through a **log-sum over experts**, which tends to be expensive and can be unstable, especially with discrete routing.
+
+This is exactly the same structure as maximum likelihood in a mixture model with unknown component assignments.
+
+---
+
+## 3. Variational latent-variable view
+
+We now adopt standard latent-variable tools.
+Introduce an **inference distribution** (variational posterior) over the route:
+$$
+q_\psi(z_t \mid s_t, a_t).
+$$
+
+Consider a single term $\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)$ in the policy gradient objective.
+We first rewrite the mixture by multiplying and dividing by $q_\psi$:
+$$
+\begin{align}
+\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
+&= \log \sum_{z_t} \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t)\\
+&= \log \sum_{z_t} \frac{q_\psi(z_t \mid s_t, a_t)}{q_\psi(z_t \mid s_t, a_t)}
+                  \rho_\phi(z_t \mid s_t)\,\pi_{\theta}(a_t \mid s_t, z_t).
+\end{align}
+$$
+
+Treating $q_\psi(\cdot \mid s_t,a_t)$ as a distribution over $z_t$ and applying Jensen’s inequality to the log yields the usual ELBO:
+$$
+\begin{align}
+\log \bar{\pi}_{\theta,\phi}(a_t \mid s_t)
+&\ge
+\mathbb{E}_{q_\psi(z_t \mid s_t, a_t)}
+\left[
+  \log \rho_\phi(z_t \mid s_t)
+  + \log \pi_{\theta}(a_t \mid s_t, z_t)
+  - \log q_\psi(z_t \mid s_t, a_t)
+\right].
+\end{align}
+$$
+
+Substituting this bound back into the policy-gradient objective gives a **weighted ELBO**:
+$$
+\begin{align}
+L_{\text{ELBO-PG}}(\theta,\phi,\psi)
+  &:= -\mathbb{E}_{t}
+    \left[
+      \hat{A}_t\,
+      \mathbb{E}_{q_\psi(z_t \mid s_t,a_t)}
+      \left[
+        \log \rho_\phi(z_t \mid s_t)
+        + \log \pi_\theta(a_t \mid s_t, z_t)
+        - \log q_\psi(z_t \mid s_t, a_t)
+      \right]
+    \right].
+\end{align}
+$$
+
+Interpretation:
+
+- We obtain a **latent-variable RL** formulation in which the latent $z_t$ is the route.
+- The advantage $\hat{A}_t$ plays the role of a **per-sample weight** on the ELBO.
+- If $q_\psi(z_t \mid s_t, a_t) = p_{\theta,\phi}(z_t \mid s_t, a_t)$ (the true posterior), this bound is tight and we recover the original marginal objective.
+
+In other words, MoE RL with marginalization over $z_t$ can be viewed as **variational learning with a latent route**.
+
+---
+
+## 4. What routing replay actually does
+
+We now relate this formulation to the practical routing replay technique used in RL.
+In **routing replay**, you store the router’s decision $z_t$ at data collection time:
+
+$$
+\mathcal{D} = \{(s_t, a_t, r_t, s_{t+1}, z_t)\}_{t}.
+$$
+
+More concretely:
+
+- During **data generation**, $z_t$ is sampled from the *behavior router* $\rho_{\phi_\text{behav}}(z_t \mid s_t)$.
+- During **training**, you don’t infer $z_t$ from $(s_t, a_t)$; instead, you **treat $z_t$ as observed data**.
+
+In latent-variable language, routing replay corresponds to choosing a **degenerate inference model**:
+
+$$
+q_\psi(z_t \mid s_t, a_t)
+  = \delta(z_t - \tilde{z}_t),
+$$
+
+where $\tilde{z}_t$ is the stored routing choice in the replay buffer.
+
+Then the inner expectation collapses:
+
+$$
+\mathbb{E}_{q_\psi}[\cdot]
+= \log \rho_\phi(\tilde{z}_t \mid s_t)
+  + \log \pi_\theta(a_t \mid s_t, \tilde{z}_t)
+  - \log 1,
+$$
+
+because the entropy term $-\mathbb{E}_{q_\psi}[\log q_\psi]$ is zero for a delta.
+
+Plugging this into the ELBO-PG objective gives the **routing replay objective**:
+
+$$
+L_{\text{RR}}(\theta,\phi)
+  = -\mathbb{E}_{(s_t,a_t,\tilde{z}_t) \sim \mathcal{D}}
+    \left[
+      \hat{A}_t\,
+      \big(
+        \log \rho_\phi(\tilde{z}_t \mid s_t)
+        + \log \pi_\theta(a_t \mid s_t, \tilde{z}_t)
+      \big)
+    \right].
+$$
+
+This is exactly the **complete-data objective** you would write down for a mixture model where the component assignment $z_t$ (the expert index) is known.
+
+---
+
+## 5. Why routing replay is (practically) necessary
+
+We can now address the central question: *why is routing replay important for MoEs in RL?*
+
+From the latent-variable perspective:
+
+- **Without routing replay**  
+  You’re directly optimizing
+  $$
+  -\hat{A}_t \log \sum_z \rho_\phi(z \mid s_t)\pi_\theta(a_t \mid s_t,z),
+  $$
+  i.e., a marginal mixture likelihood with a **discrete latent** and a log-sum over experts.
+
+  This has several issues:
+  - Credit assignment to the router becomes poorly conditioned: every expert contributes inside the log-sum, even if only one expert actually produced the action.
+  - When the log-sum is approximated, the resulting estimator is *nested* (see Section 5.1), leading to biased and statistically inefficient gradient estimates for a fixed compute budget.
+  - The router can exploit the log-sum-exp structure in undesirable ways (for example, collapsing to a few experts or inducing brittle routing changes), because its gradients are driven by a “soft” mixture rather than the actual routing decisions used to act.
+
+- **With routing replay**  
+  You optimize
+  $$
+  -\hat{A}_t \big(
+    \log \rho_\phi(z_t \mid s_t)
+    + \log \pi_\theta(a_t \mid s_t,z_t)
+  \big),
+  $$
+  i.e., a **complete-data latent-variable objective** where $z_t$ is treated as known.
+
+  This provides several advantages:
+  - Clean credit assignment: the router is trained on the *actual* route that was taken when the action was executed and the return was observed.
+  - A well-behaved gradient estimator: there is no need to differentiate through a log-sum over experts; only the log-probabilities of a single expert and its route are involved.
+  - Conceptual alignment with standard latent-variable training: the setting corresponds to an “E-step already done” regime in which component assignments are observed.
+
+In summary, routing replay is the MoE RL analogue of **training on complete data instead of marginalizing over unknown latents**.
+If one discards the router decisions and trains only on the marginal mixture, one implicitly tackles a more difficult latent-variable optimization problem whose natural approximations are *nested estimators* with poor statistical properties.
+
+This perspective helps explain why, in practice, MoE RL setups that do not log and replay routes often behave poorly, whereas routing replay tends to stabilize training: it replaces a nested, ill-conditioned latent-variable objective with a tractable complete-data one.
+
+### 5.1 Variance and nested Monte Carlo
+
+The discussion above focused on optimization and credit assignment.
+The dominant practical difficulty, however, is statistical: naive approximations to the marginal objective turn the problem into a **nested Monte Carlo** estimation task.
+To make this precise, it is useful to characterize the **variance** of the corresponding gradient estimators.
+
+#### Generic background: nested estimators
+
+At a high level, a nested Monte Carlo estimator arises whenever we wish to estimate a quantity of the form
+$$
+\mathbb{E}_{x}\big[F(\mu(x))\big],
+\qquad
+\mu(x) := \mathbb{E}_{y\mid x}[g(x,y)],
+$$
+and we approximate the inner expectation $\mu(x)$ by Monte Carlo:
+$$
+\hat{\mu}_M(x) = \frac{1}{M}\sum_{m=1}^M g(x,y^{(m)}),
+  \quad y^{(m)} \sim p(y \mid x),
+$$
+before applying the outer nonlinearity $F(\cdot)$.
+The resulting estimator
+$$
+\hat{I}_{N,M}
+  = \frac{1}{N} \sum_{n=1}^N
+      F\big(\hat{\mu}_M(x^{(n)})\big),
+  \quad x^{(n)} \sim p(x),
+$$
+is *nested*: it contains an inner Monte Carlo loop inside an outer one.
+Rainforth et al. (2019)[^rainforth2019] show that, for fixed total budget $T = N M$, such estimators are generally biased and exhibit worse mean-squared-error scaling than non-nested estimators, because the nonlinearity $F$ amplifies inner Monte Carlo error.
+
+In the MoE RL setting, there are two natural granularities for $x$.
+At the per-decision level, $x$ can be taken as $(s_t,a_t)$ and $y$ as the expert index $z_t$, with $F$ given by the composition with the logarithm and policy-gradient weighting.
+At the trajectory level, $x$ corresponds to an entire trajectory $\tau = (s_{1:T},a_{1:T},r_{1:T})$ and $y$ to the sequence of routing decisions $z_{1:T}$.
+Crucially, in an MoE policy each $z_t$ is sampled *before* the action $a_t$ and affects all subsequent states via the dynamics $s_{t+1} \sim p(\cdot \mid s_t,a_t)$.
+The inner expectation is therefore over an entire routing sequence $z_{1:T}$ whose dimensionality and influence both grow with horizon $T$, so naive nested Monte Carlo here is genuinely “nested over time” and becomes particularly pathological in long-horizon MoE RL.
+
+For fixed $(s_t,a_t)$, define
+$$
+h(z_t; s_t,a_t)
+  := \nabla_\phi \log \rho_\phi(z_t \mid s_t)
+   + \nabla_\theta \log \pi_\theta(a_t \mid s_t, z_t).
+$$
+Then the per-sample gradients for the marginalized and routing-replay objectives can be written as
+$$
+g_\text{marg}(s_t,a_t)
+  = \hat{A}_t\,\mathbb{E}_{z_t \mid s_t,a_t}[h(z_t; s_t,a_t)],
+$$
+$$
+g_\text{RR}(s_t,a_t,z_t)
+  = \hat{A}_t\,h(z_t; s_t,a_t).
+$$
+
+By the law of total variance, conditioning on $(s_t,a_t)$,
+$$
+\mathrm{Var}[g_\text{RR}]
+  = \mathrm{Var}[g_\text{marg}]
+    + \mathbb{E}_{(s_t,a_t)}\Big[
+        \hat{A}_t^2\,
+        \mathrm{Var}_{z_t \mid s_t,a_t}\big[h(z_t; s_t,a_t)\big]
+      \Big].
+$$
+The second term is non-negative, so in the idealized regime where exact marginalization over experts is tractable, the marginal objective yields a lower-variance gradient estimator than the complete-data objective.
+In practice, however, the exact sum over experts is often prohibitively expensive in large MoE architectures.
+
+When the sum over experts is approximated by Monte Carlo, the marginal objective induces a **nested Monte Carlo estimator**.
+Writing
+$$
+\mu(s_t,a_t)
+  := \mathbb{E}_{z_t \mid s_t}[\pi_\theta(a_t \mid s_t,z_t)],
+  \qquad
+F(\mu) := -\hat{A}_t \log \mu,
+$$
+one replaces $\mu$ by a finite-sample estimate
+$$
+\hat{\mu}_M(s_t,a_t)
+  = \frac{1}{M} \sum_{m=1}^M \pi_\theta(a_t \mid s_t, z_t^{(m)}),
+$$
+and uses $F(\hat{\mu}_M)$ inside an *outer* expectation over the replay distribution.
+This is exactly the nested structure studied by Rainforth et al. (2019): a nonlinear transformation of an inner Monte Carlo estimate inside an outer expectation.
+
+The key implication is that, for a fixed total sample budget, such nested estimators exhibit worse bias and mean-squared-error scaling than non-nested estimators.
+Thus approximate marginalization over experts can be substantially less statistically efficient than either:
+(i) exact marginalization (when feasible), or
+(ii) complete-data training with routing replay, which remains non-nested.
+
+From this viewpoint, the *primary* benefit of routing replay is that it avoids nested Monte Carlo altogether by converting the latent route into observed data and optimizing a single-level objective.
+
+---
+
+## 6. One-line summary
+
+Routing replay turns the expert index $z_t$ from an unobserved latent variable in the mixture policy $\bar{\pi}(a_t\mid s_t)$ into an observed variable stored in replay, so the MoE RL training objective becomes a weighted complete-data (latent-variable) objective:
+
+$$
+\max_{\theta,\phi}
+\;\mathbb{E}\left[\hat{A}_t \left(
+  \log \rho_\phi(z_t \mid s_t) + \log \pi_\theta(a_t \mid s_t,z_t)
+\right)\right],
+$$
+
+which is precisely the standard latent-variable formulation with known component assignments.
+
+[^rainforth2019]: Tom Rainforth, Robert Cornish, Hongseok Yang, Andrew Warrington, and Frank Wood. *On Nested Monte Carlo Estimation*. In Proceedings of the 35th International Conference on Machine Learning (ICML), 2018.
