@@ -200,6 +200,25 @@ $$
 Equivalently, to reach a target accuracy $\varepsilon$, a non-nested estimator requires $T = O(\varepsilon^{-2})$, whereas a nested estimator requires $T = O(\varepsilon^{-3})$.
 This gap quantifies how much “weakening” the estimator by introducing an inner Monte Carlo loop degrades its statistical efficiency.
 
+From a latent-variable perspective, this weakening can be seen directly by comparing **complete-data** and **marginal** objectives.
+Suppose we have latent-variable samples $(x,z)$ and a complete-data objective of the form
+$$
+J_\text{cd}
+  = \mathbb{E}_{x,z}\big[G(x,z)\big],
+$$
+which is a single expectation and can be estimated with a non-nested Monte Carlo estimator.
+If we choose to discard $z$ and work only with the marginal $p(x)$, we rewrite this as
+$$
+\begin{align}
+J_\text{marg}
+  &= \mathbb{E}_{x}\Big[\mathbb{E}_{z \mid x}\big[G(x,z)\big]\Big]\\
+  &= \mathbb{E}_{x}\big[F(\mu(x))\big],
+\end{align}
+$$
+where $\mu(x) := \mathbb{E}_{z \mid x}[G(x,z)]$ and $F$ is the identity.
+If the inner expectation $\mu(x)$ cannot be computed exactly and must be approximated by Monte Carlo, $J_\text{marg}$ acquires the nested structure above.
+In this sense, marginalizing $z$ from $p(x,z)$ to $p(x)$ when we still have access to samples of $z$ is a *weakening* of the estimator: it trades a single-level objective on complete data for a nested objective on partial data.
+
 In the MoE RL setting, there are two natural granularities for $x$.
 At the per-decision level, $x$ can be taken as $(s_t,a_t)$ and $y$ as the expert index $z_t$, with $F$ given by the composition with the logarithm and policy-gradient weighting.
 At the trajectory level, $x$ corresponds to an entire trajectory $\tau = (s_{1:T},a_{1:T},r_{1:T})$ and $y$ to the sequence of routing decisions $z_{1:T}$.
