@@ -56,6 +56,26 @@ Conceptually, this means:
 
 This is exactly the same structure as maximum likelihood in a mixture model with unknown component assignments, and it is this marginal form that will give rise to a nested estimator when approximated.
 
+### 1.1 Top-$k$ routing as a subset distribution
+
+Many practical MoE architectures route not a single expert, but a **subset** of $k$ experts at each timestep.
+In that case the latent routing variable is a subset $S_t \subset \{1,\dots,K\}$ with $|S_t| = k$, rather than a single index.
+Given router scores $\{s_i(s_t)\}_{i=1}^K$, a common abstraction is to view the induced distribution over orderings as a [Plackett–Luce](https://en.wikipedia.org/wiki/Plackett%E2%80%93Luce_model) model:
+$$
+p(\sigma \mid s_t)
+  \propto \prod_{j=1}^K \exp\big(s_{\sigma(j)}(s_t)\big),
+$$
+where $\sigma$ ranges over permutations of $\{1,\dots,K\}$.
+Selecting the “top-$k$” experts then corresponds to taking the first $k$ positions $\sigma(1{:}k)$ (possibly with additional deterministic or stochastic pruning).
+
+In real systems, the router scores themselves are often subject to small amounts of implementation-level noise (for example, due to nondeterministic GPU kernels or reduction orderings), which effectively induces an **implicit sampling distribution** over experts even when the router is nominally deterministic.[^he-nondet]
+From the latent-variable perspective, this means that the subset $S_t$ is genuinely random under a distribution parameterized by the router, and routing replay is logging samples from this random subset distribution.
+
+One concrete way to sample from this subset distribution is via the **Gumbel–top-$k$ trick**.
+Define nonnegative weights $w_i = \exp(s_i(s_t))$ and draw i.i.d. Gumbel noise $g_i \sim \text{Gumbel}(0,1)$.
+Form perturbed scores $\tilde{s}_i = \log w_i + g_i$ and sort the experts by $\tilde{s}_i$ in descending order.
+It can be shown that the resulting random permutation is exactly distributed according to the Plackett–Luce model with parameters $\{w_i\}$, so taking the first $k$ experts in this sorted order yields a size-$k$ subset whose distribution matches the Plackett–Luce–induced “top-$k$ without replacement” distribution.
+
 ---
 
 ## 2. Routing replay as complete-data training
@@ -276,3 +296,4 @@ $$
 which is precisely the standard latent-variable formulation with known component assignments.
 
 [^rainforth2019]: Tom Rainforth, Robert Cornish, Hongseok Yang, Andrew Warrington, and Frank Wood. *On Nested Monte Carlo Estimation*. ICML 2018. arXiv:1606.00323.
+[^he-nondet]: Horace He. “Defeating Nondeterminism.” Thinking Machines blog.
