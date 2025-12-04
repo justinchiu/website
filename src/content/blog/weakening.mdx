@@ -311,6 +311,49 @@ Thus approximate marginalization over experts can be substantially less statisti
 
 From this viewpoint, the *primary* benefit of routing replay is that it avoids nested Monte Carlo altogether by converting the latent route into observed data and optimizing a single-level objective.
 
+### 4.1 Case study: variance behavior for MoE RL
+
+It is also useful to compare, at a qualitative level, how the variance of different MoE RL gradient estimators behaves as a function of the horizon $T$ and the choice of estimator.
+Consider an episodic setting with a single return $R(\tau)$ per trajectory and define, for simplicity, the per-timestep complete-data contribution
+$$
+g_{\text{RR},t}(\tau)
+  := R(\tau)\,\big(\nabla_\phi \log \rho_\phi(z_t \mid s_t)
+                   + \nabla_\theta \log \pi_\theta(a_t \mid s_t,z_t)\big),
+$$
+so that the routing-replay gradient estimator is
+$$
+g_\text{RR}(\tau) = \sum_{t=1}^T g_{\text{RR},t}(\tau).
+$$
+
+- **Case 1: Complete-data (routing replay), single sample per trajectory.**  
+  Even without nesting, variance typically grows at least linearly with $T$.
+  Writing
+  $$
+  \mathrm{Var}[g_\text{RR}]
+    = \sum_{t=1}^T \mathrm{Var}[g_{\text{RR},t}]
+      + 2\sum_{1\le t<u\le T} \mathrm{Cov}(g_{\text{RR},t},g_{\text{RR},u}),
+  $$
+  and assuming each $g_{\text{RR},t}$ has non-zero variance and covariances are not strongly negative, we obtain
+  $\mathrm{Var}[g_\text{RR}] \gtrsim c T$ for some $c>0$.
+  This is the usual “variance grows with horizon” behavior of sequence-level REINFORCE.
+
+- **Case 2: Exact marginalization over experts (intractable ideal).**  
+  If we could compute the sum over experts exactly, the marginal gradient estimator would have *lower* variance than the complete-data one by the law of total variance:
+  integrating out $z_t$ removes conditional variability.
+  However, this regime is not computationally accessible in realistic MoE architectures.
+
+- **Case 3: Single-sample plug-in approximation to the marginal.**  
+  In practice, approximating
+  $\log \sum_{z_t} \rho_\phi(z_t\mid s_t)\pi_\theta(a_t\mid s_t,z_t)$
+  with a single-sample plug-in of the form
+  $\log \hat{\mu}_1(s_t,a_t)$ (or its gradient) introduces additional noise:
+  each per-timestep term becomes a nonlinear function of a single random route sample.
+  Summing these noisy terms over $t$ and scaling by a shared $R(\tau)$ again gives at least linear growth in variance with $T$, but with larger per-timestep variance and bias compared to the complete-data case.
+
+Taken together, these cases suggest the following picture:
+routing replay does not eliminate the usual horizon-related variance issues of RL, but it avoids the additional variance and bias introduced by approximating a high-dimensional marginal log-sum over experts with noisy single-sample plug-ins.
+The nested Monte Carlo viewpoint clarifies why the marginal training problem is statistically harder than the complete-data one, even when both ultimately rely on single-sample estimators in practice.
+
 ---
 
 ## 6. One-line summary
