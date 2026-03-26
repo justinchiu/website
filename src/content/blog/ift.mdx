@@ -309,10 +309,10 @@ $$
 which agrees with directly differentiating softmax.
 For this toy example, the special structure of the KKT system lets us solve the
 linear system in closed form.
-In more general problems, solving the IFT system typically requires
+In more general problems, solving the IFT system can require
 $O(n^3)$ time and $O(n^2)$ space in the dense case.
 
-### Limitations
+## Limitations
 In order to compute the derivative $\frac{dx}{d\theta}$, we had to invert the Jacobian of $F$
 (the system of equations derived from the KKT conditions),
 i.e. compute
@@ -334,6 +334,6 @@ The number of solution variables scales with the number of primal variables,
 but also the number of constraints.
 This potentially makes applying the IFT to optimization problems with exponentially
 many constraints difficult.
-There seem to be potentially cheap ways of approximating this computation,
+Finding potentially cheap approximations of this computation was an active research area,
 such as with approximate inverse-Hessian-vector-product techniques.
 
