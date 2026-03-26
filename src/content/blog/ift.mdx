@@ -1,11 +1,11 @@
 ---
 title: 'Differentiating through optimization with the IFT'
 description: 'Differentiating through optimization'
-pubDate: 'Mar 25 2026'
-draft: true
+pubDate: 'Mar 26 2026'
+draft: false
 ---
 
-A [startup](https://x.com/opt_intellect/status/2036485190646735291?s=20) recently came out that reminded me of an old [report](https://github.com/justinchiu/ift) I wrote on differentiating through optimization problems with the [implicit function theorem](https://en.wikipedia.org/wiki/Implicit_function_theorem) (IFT).
+A [startup](https://x.com/opt_intellect/status/2036485190646735291?s=20) recently came out that reminded me of an old (embarrassing) [report](https://github.com/justinchiu/ift) I wrote on differentiating through optimization problems with the [implicit function theorem](https://en.wikipedia.org/wiki/Implicit_function_theorem) (IFT).
 If I remember correctly, I was playing with ways to differentiate through massively sparse softmax problems.
 Unfortunately, I think I gave up after a week. Don't be me.
 
@@ -28,11 +28,10 @@ The IFT shows up in a number of places.
 [Influence functions](https://arxiv.org/abs/2209.05364) used it for training data attribution (I guess mainly [Anthropic](https://www.anthropic.com/research/influence-functions)).
 Meta-learning methods like [MAML](https://arxiv.org/abs/1703.03400) differentiate through inner-loop optimization, and [iMAML](https://arxiv.org/abs/1909.04630) used the IFT to do so without unrolling.
 Hyperparameter optimization and variational inference also fit naturally into this framework.
-I'm also old and haven't kept up with this area, so there could be even more.
+Note: You can also [derive autodiff itself from the IFT](https://epubs.siam.org/doi/book/10.1137/1.9780898717761).
 
 In this post, I'll walk through the mechanics of applying the IFT to softmax, expressed as an optimization problem.
-Warning: This post goes a bit deeper into calculations than my previous posts as the IFT is pretty mechanical. Good thing we have AI.
-
+Warning: This post goes a bit deeper into calculations than my previous posts as the IFT is pretty mechanical.
 ## The Implicit Function Theorem
 As a starting example, consider the unit circle
 governed by the relation
@@ -163,21 +162,12 @@ $$
 z^\top \mathbf{1}_n - 1 &= 0.
 \end{aligned}
 $$
-Note that the first equation is vector-valued.
-
-This completes the second step, where we chose a subset of the KKT conditions
-in order to produce a nonlinear system of equations.
-We can now proceed to check the conditions of the IFT,
-which will determine whether $F$ is locally well-behaved
-at a particular solution point $(\theta, z, u)$.
 
 ### Step 3: Check that the IFT conditions hold at the solution point
-Recall that the IFT requires the following three conditions,
+The IFT only applies if the following three conditions to hold,
 which must be checked on a case-by-case basis for particular
 solution points.
-If these conditions do not hold,
-the IFT does not apply at this particular combination of $F$ and solution point.
-The derivative $\frac{dx}{d\theta}$ may still be computed via other means
+Note that the derivative $\frac{dx}{d\theta}$ may still be computed via other means
 if it exists.
 
 - $F(\theta, z, u) = 0$,
@@ -186,10 +176,9 @@ if it exists.
   or equivalently $\frac{dF(\theta, z, u)}{d(z, u)}$
   is full rank.
 
-Returning to the softmax problem,
+In the softmax problem,
 the first condition holds as we have a solution to the optimization problem
 and $F$ was chosen using the KKT conditions.
-Recall that softmax also has a closed form expression.
 The second condition also holds, as $F$ has continuous first derivatives.
 All that remains is to check the third condition,
 that the Jacobian matrix
@@ -322,23 +311,6 @@ linear system in closed form.
 In more general problems, solving the IFT system typically requires
 $O(n^3)$ time and $O(n^2)$ space in the dense case.
 
-This concludes the exercise of using the IFT to differentiate through the softmax problem.
-While softmax itself has a closed form expression for both its output and derivative,
-we showed that the IFT can also be used to compute its derivative in a solver-agnostic manner.
-We started by expressing softmax as an optimization problem,
-then, assuming we had a solution to the softmax problem regardless of whether it was obtained
-in closed form or through an iterative method,
-reverse engineered a system of equations using the KKT conditions.
-We then restricted our attention to the set of solution points where we could successfully
-apply the IFT,
-then applied the derivative identity above to compute the derivative at a solution point.
-
-The same methodology can be applied to more general optimization problems,
-such as quadratic programs (as in OptNet) or other convex programs.
-In those problems closed form solutions may not exist, and iterative solvers must be used
-where applying reverse-mode AD would take $\Omega(Kn)$ space with $K$ steps,
-while the IFT would naively take $O(n^2)$ space.
-
 ### Limitations
 In order to compute the derivative $\frac{dx}{d\theta}$, we had to invert the Jacobian of $F$
 (the system of equations derived from the KKT conditions),
@@ -361,57 +333,6 @@ The number of solution variables scales with the number of primal variables,
 but also the number of constraints.
 This potentially makes applying the IFT to optimization problems with exponentially
 many constraints difficult.
-Thankfully, there are relatively cheap ways of approximating this computation,
+There seem to be potentially cheap ways of approximating this computation,
 such as with approximate inverse-Hessian-vector-product techniques.
-Lorraine et al. in particular show that the derivative can be approximated
-in $O(n)$ space using a truncated Neumann series approximation for the inverse Hessian.
 
-Additionally, comparing the speed of computing derivatives via AD on a large trace versus the IFT
-must be done on a case-by-case basis.
-For softmax, let us pretend we solved the softmax problem with an iterative method in $K$ steps.
-Computing the derivative from the execution trace would take $O(Kn)$ time using reverse-mode AD,
-while the naive IFT would take $O(n^3)$ time, giving an asymptotic speedup only when $K > n^2$.
-In practice, the constant factors in the runtime will play a large factor in which approach
-is better, as well as any approximations made to make either approach more efficient.
-For unrolled AD, we could not fully solve the optimization problem and use the truncated trace.
-For the IFT, vector-inverse-Hessian-vector-product approximations other than the Neumann series
-include conjugate gradient, identity approximations, and other factorizations such as K-FAC.
-
-### Extensions
-The methods we covered can be extended to variations of argmax problems
-other than the softmax problem.
-The argmax problem is given by maximize $z^\top \theta$, subject to $z^\top\mathbf{1}_n = 1$
-and $z \succeq 0$, otherwise known as the support function of the constraint set.
-The softmax problem altered the argmax problem by introducing entropy regularization.
-Rather than regularizing with entropy, one could instead alter the objective to find
-the Euclidean projection of the parameters onto the probability simplex,
-resulting in SparseMax.
-While the output of softmax variants often have a closed form expression,
-the IFT provides another way of deriving their Jacobians
-and could potentially pave the way for differentiating through argmax problems
-that do not have closed-form expressions,
-such as projections onto the $(n,k)$-simplex,
-which can be interpreted as selecting $k$ elements from $n$.
-
-More generally, the IFT can be applied to cases where, unlike softmax,
-we do not have an explicit functional form and outputs are governed only by a system of equations.
-This includes more general optimization problems, such as quadratic programs
-or other convex optimization problems.
-
-## Discussion
-In this post, we walked through the application of the implicit function theorem
-to optimizing the parameters of an optimization problem, as a function of a solution.
-The process was quite involved, involving a large number of manual calculations.
-Ironically, this contrasts with the philosophy of **automatic** differentiation,
-which seeks to minimize user error by minimizing the number of manual calculations.
-The degree of manual calculation in applying the IFT is unsurprising,
-as it generalizes forward- and reverse-mode automatic differentiation.
-Griewank and Walther show that we can derive forward- and reverse-mode automatic differentiation
-from the IFT, through Schur complements as we showed for the particular case of softmax.
-
-Work by Blondel et al. seeks to address this by applying automatic differentiation to the
-system of equations central to the application of the IFT to bilevel optimization.
-We are excited to see where these methods find applications.
-
-## Acknowledgements
-We thank Yuntian Deng, Daniel Fried, Woojeong Kim, Jack Morris, and Alexander Rush for helpful feedback.
