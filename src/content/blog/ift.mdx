@@ -111,6 +111,7 @@ Applying the IFT consists of four steps:
 4. Compute the derivative of the implicit solution mapping with respect to the parameters.
 
 We assume the first step has been done for us, and we have a solution $z$ to the softmax problem.
+Most of these manipulations are math homework flavored.
 
 ### Step 2: The KKT conditions determine the system of equations
 In order to apply the IFT,
@@ -188,11 +189,7 @@ $$
 $$
 (evaluated at the solution point) is non-singular.
 
-The Jacobian matrix
-$$
-\frac{dF(\theta, z, u)}{d(z, u)} \in \mathbb{R}^{n+1 \times n+1}
-$$
-is given by
+The Jacobian matrix is given by
 $$
 \frac{dF(\theta, z, u)}{d(z, u)}
 =
@@ -203,17 +200,9 @@ $$
 $$
 The upper-left block is $-\mathrm{diag}(z)^{-1}$ (from the Hessian of $H$); its entries blow up if
 any component $z_i = 0$.
-This term was obtained by differentiating the entropy
-term of the Lagrangian,
-$$
-H(z) = -\sum_i z_i \log z_i.
-$$
-While we could use the convention $0 \log 0 = 0$,
-this does not fix the divide-by-zero issue with the second derivative, which we see here.
-To avoid this, we consider only strictly positive $z \succ 0$ for the IFT.
-This restriction is natural, as softmax already satisfies $z_i > 0$ for finite $\theta$.
-(We saw a similar issue in the unit circle example, where the derivative
-$\frac{dx}{d\theta}$ was undefined when $x=0$.)
+We saw a similar issue in the unit circle example, where the derivative
+$\frac{dx}{d\theta}$ was undefined when $x=0$.
+Luckily, softmax already satisfies $z_i > 0$ for finite $\theta$.
 
 Once $z \succ 0$, the block $-\mathrm{diag}(z)^{-1}$ is invertible.
 The Schur complement of the upper-left block is
@@ -232,9 +221,9 @@ Recall that the IFT applies at particular solution points,
 meaning we can pick and choose which points to analyze.
 
 ### Step 4: Compute $\frac{dx}{d\theta}$
-Now that we have a set of solution points where conditions of the IFT hold,
+Now that we have a set of solution points where the IFT holds,
 we can use the IFT to compute $\frac{dz}{d\theta}$.
-Recall that we have the solution $x = (z, u)$; we will switch to $x$ for brevity.
+Recall that we have the solution $x = (z, u)$.
 The second part of the IFT tells us that we can compute the Jacobian of the
 solution mapping
 $$
@@ -246,11 +235,7 @@ $$
 $$
 then pick out the relevant components.
 
-The second term,
-$$
-\frac{dF(\theta, x)}{d\theta},
-$$
-is simple.
+The second term $\frac{dF(\theta, x)}{d\theta}$ is simple.
 Since $\theta$ only appears in the first vector-valued function of $F$,
 we have
 $$
@@ -307,34 +292,10 @@ Therefore the Jacobian of the solution mapping is
 $$
 \frac{d z}{d\theta} = \mathrm{diag}(z) - zz^\top,
 $$
-which agrees with directly differentiating softmax.
+which agrees with the analytic Jacobian.
+
 For this toy example, the special structure of the KKT system lets us solve the
 linear system in closed form.
-In more general problems, solving the IFT system can require
-$O(n^3)$ time and $O(n^2)$ space in the dense case.
-
-## Limitations
-In order to compute the derivative $\frac{dx}{d\theta}$, we had to invert the Jacobian of $F$
-(the system of equations derived from the KKT conditions),
-i.e. compute
-$$
-\left[\frac{dF(\theta, x)}{dx}\right]^{-1}.
-$$
-However, the first part of $F$, the stationarity condition
-$$
-\frac{\partial}{\partial z}\mathcal{L} = 0,
-$$
-already involved the Jacobian of the Lagrangian $\mathcal{L}$.
-In general, this means that in order to apply the IFT to solutions of optimization problems,
-we must compute the inverse Hessian of the Lagrangian.
-From the IFT, we can either compute the full inverse Hessian or only the
-inverse-Hessian-vector product, which can sometimes be cheaply approximated.
-The Hessian is a matrix of size $O(n^2)$,
-and inverting this would take $O(n^3)$ computation.
-The number of solution variables scales with the number of primal variables,
-but also the number of constraints.
-This potentially makes applying the IFT to optimization problems with exponentially
-many constraints difficult.
-Finding potentially cheap approximations of this computation was an active research area,
-such as with approximate inverse-Hessian-vector-product techniques.
-
+However, solving the IFT system in general requires computing the inverse Hessian of the Lagrangian, which takes $O(n^3)$ time.
+In practice, we typically avoid materializing the full Jacobian and instead compute JVPs or VJPs through the implicit function,
+where the cost can be further alleviated with approximate inverse-Hessian-vector-product methods.
