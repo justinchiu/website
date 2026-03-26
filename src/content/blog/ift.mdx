@@ -32,6 +32,7 @@ Note: You can also [derive autodiff itself from the IFT](https://epubs.siam.org/
 
 In this post, I'll walk through the mechanics of applying the IFT to softmax, expressed as an optimization problem.
 Warning: This post goes a bit deeper into calculations than my previous posts as the IFT is pretty mechanical.
+
 ## The Implicit Function Theorem
 As a starting example, consider the unit circle
 governed by the relation
@@ -89,7 +90,7 @@ Softmax is also the solution of the following constrained optimization problem:
 $$
 \begin{aligned}
 \textrm{maximize } \quad & z^\top\theta + H(z)\\
-\textrm{subject to } \quad & z^\top \mathbf{1} = 1\\
+\textrm{subject to } \quad & z^\top \mathbf{1}_n = 1\\
 & z_i \geq 0, \forall i,
 \end{aligned}
 $$
