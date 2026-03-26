@@ -2,7 +2,16 @@
 import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import FormattedDate from '../components/FormattedDate.astro';
 import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
+import { getCollection } from 'astro:content';
+
+const recentPosts = (await getCollection(
+	'blog',
+	({ data }) => data.draft !== true
+)).sort(
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+).slice(0, 3);
 ---
 
 <!doctype html>
@@ -33,40 +42,54 @@ import { SITE_TITLE, SITE_DESCRIPTION } from '../consts';
 
         	<hr>
 
+			<h3>Blog Posts</h3>
+			<ul class="recent-posts">
+				{recentPosts.map((post) => (
+					<li>
+						<a href={`/blog/${post.slug}/`}>{post.data.title}</a>
+						<span class="post-date"><FormattedDate date={post.data.pubDate} /></span>
+					</li>
+				))}
+			</ul>
+
+			<hr>
+
         	<h3>Research Topics</h3>
-        	<div class="highlights">
+        	<div class="topic-card">
             	<b>Software engineering agents</b>
-            	<br>
+            	<p>
                 How can we make robots better software engineers?
                 As they become better engineers, do the principles that guide human-oriented design still hold for robots?
+				</p>
             	<ul>
                 	<li><a href="https://arxiv.org/abs/2506.11058">Refactoring Codebases through Library Design</a>
                 	<li><a href="https://arxiv.org/abs/2412.01769">Commit0: Library Generation from Scratch</a> (ICLR 2025)
                 </ul>
         	</div>
-        	<div class="highlights">
+        	<div class="topic-card">
             	<b>Interaction as optimal control</b>
-            	<br>
+            	<p>
             	In human-robot interaction, many tasks are too complex to accomplish in a single turn.
             	How can robots collaborate with humans by resolving ambiguity as efficiently as possible?
             	We frame interaction as an optimal control problem, and explore simple heuristics.
+				</p>
             	<ul>
                 	<li><a href="https://arxiv.org/abs/2310.17140">Symbolic Planning and Code Generation for Grounded Dialogue</a> (EMNLP 2023)
                 	<li><a href="https://arxiv.org/abs/2311.08584">Asking More Informative Questions for Grounded Retrieval</a> (ACL Findings 2024)
                 </ul>
         	</div>
-        	<div class="highlights">
+        	<div class="topic-card">
             	<b>Scaling discrete latent variable models</b>
-            	<br>
+            	<p>
             	Discrete structure is common in the world (language, biology, code),
             	and can also yield efficient or interpretable models.
             	However, discrete structure makes learning difficult due to non-differentiability.
                 Can we scale models with discrete structure?
                 And what structural properties can we take advantage of?
+				</p>
                 <ul>
                     <li><a href="https://arxiv.org/abs/2406.07524">Simple and Effective Masked Diffusion Language Models</a> (NeurIPS 2024)
-                    <li><a href="https://arxiv.org/abs/2503.09573">Block Diffusion: Interpolating Between Autoregressive and Diffusion Language Models
-</a> (ICLR 2025)
+                    <li><a href="https://arxiv.org/abs/2503.09573">Block Diffusion: Interpolating Between Autoregressive and Diffusion Language Models</a> (ICLR 2025)
                 	<li><a href="https://arxiv.org/abs/2011.04640">Scaling Hidden Markov Language Models</a> (EMNLP 2020)
                 	<li><a href="https://proceedings.neurips.cc/paper/2021/hash/16c0d78ef6a76b5c247113a4c9514059-Abstract.html">Low-Rank Constraints for Fast Inference in Structured Models</a> (NeurIPS 2021)
                 	<li><a href="https://arxiv.org/abs/2305.14237">HOP, UNION, GENERATE: Unsupervised Multi-hop Reasoning</a> (EMNLP 2023)

@@ -28,20 +28,29 @@ const { title, description, pubDate, updatedDate } = Astro.props;
 				border-radius: 12px;
 				box-shadow: var(--box-shadow);
 			}
-			@media (min-width: 1200px) {
 			.prose {
-				width: 700px;
+				width: 740px;
 				max-width: calc(100% - 2em);
 				color: rgb(var(--gray-dark));
+				margin: auto;
 			}
+			.prose :global(.katex-display) {
+				margin: 1.5em 0;
+				overflow-x: auto;
+				overflow-y: hidden;
+				-ms-overflow-style: none;
+				scrollbar-width: none;
 			}
-			@media (max-width: 1200px) {
-			.prose {
-				width: 700px;
-				max-width: calc(100% - 2em);
-				color: rgb(var(--gray-dark));
-				margin: auto
+			.prose :global(.katex-display)::-webkit-scrollbar {
+				display: none;
 			}
+			.prose :global(ol) {
+				list-style: decimal;
+				padding-left: 1.5em;
+			}
+			.prose :global(ul) {
+				list-style: disc;
+				padding-left: 1.5em;
 			}
 			.title {
 				margin-bottom: 1em;
