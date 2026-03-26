@@ -210,9 +210,10 @@ $$
 While we could use the convention $0 \log 0 = 0$,
 this does not fix the divide-by-zero issue with the second derivative, which we see here.
 To avoid this, we consider only strictly positive $z \succ 0$ for the IFT.
-This restriction is natural here, as softmax already satisfies $z_i > 0$ for finite $\theta$.
-We saw a similar issue in the unit circle example, where the derivative
-$\frac{dx}{d\theta}$ was undefined when $x=0$.
+This restriction is natural, as softmax already satisfies $z_i > 0$ for finite $\theta$.
+(We saw a similar issue in the unit circle example, where the derivative
+$\frac{dx}{d\theta}$ was undefined when $x=0$.)
+
 Once $z \succ 0$, the block $-\mathrm{diag}(z)^{-1}$ is invertible.
 The Schur complement of the upper-left block is
 $$
