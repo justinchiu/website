@@ -1,9 +1,39 @@
 ---
-title: 'RL review'
-description: 'RL review'
+title: 'LLM RL is still next-token prediction'
+description: 'LLM RL is still next-token prediction'
 pubDate: 'Aug 19 2025'
 draft: True
 ---
+
+LLM RL is still next-token prediction, and that's a beautiful thing.
+This blog post is going to explain why this is the case mathematically, and how you should take advantage of it.
+Note that this is nothing new, e.g. current RL frameworks like slime already use megatron-core.
+
+The takeaway: policy gradient is the ground truth.
+For LLMs, policy gradient is just advantage-weighted NLL on model samples.
+Once you view it this way, a few things fall out:
+
+1. The states and actions are token-level.
+2. You can reuse pretraining infrastructure.
+3. Importance weights matter once the data is off-policy, but there are mathematically justified ways around them.
+
+The second point is more than an engineering convenience.
+If LLM RL is advantage-weighted NLL, the training example is just a sequence with a loss mask and an advantage vector:
+$$
+\begin{equation}
+L(\theta) = -\frac{1}{|\mathcal{M}|}\sum_{(i,t)\in\mathcal{M}} A_{i,t}\log \pi_\theta(y_{i,t}\mid x_i, y_{i,<t}).
+\end{equation}
+$$
+This maps cleanly onto pretraining infrastructure:
+
+1. You can pack sequences.
+2. The batch API can look like the masked-loss APIs used by Tinker and SLIME: tokens, masks, and per-token advantages.
+3. Training metrics have obvious interpretations. For example, `gradnorm` is just the gradient norm of this weighted NLL.
+4. Gradient averaging should follow the pretraining convention: average over active loss tokens after masking and packing.
+
+That last point matters.
+If you average gradients the same way as pretraining, you avoid introducing extra length-dependent weighting unless you explicitly want it.
+This sidesteps some of the weird length behavior in the original DeepSeek GRPO setup, where the averaging convention changes which samples receive more weight.
 
 The goal of reinforcement learning is to find a policy $\pi(y\mid x)$ that answers question $x$ with answer $y$, achieving high rewards $r(y)$.
 We want to find a $\pi$ that maximizes
@@ -23,7 +53,7 @@ $$
 &= E_{p(x)}\left[E_{\pi(y\mid x)} r(y) \nabla \log \pi(y\mid x)\right]\\
 \end{align}
 $$
-We use this gradient estimator since it is intractable to compute the expectation 
+We use this gradient estimator since it is intractable to compute the expectation
 wrt $\pi(y\mid x)$ exactly.
 The score-function derivative is instead used to rewrite the gradient of an expectation
 as the expected gradient.
