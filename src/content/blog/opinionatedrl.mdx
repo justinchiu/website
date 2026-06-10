@@ -1,103 +1,119 @@
 ---
-title: 'LLM RL is still next-token prediction'
-description: 'LLM RL is still next-token prediction'
-pubDate: 'Aug 19 2025'
+title: 'RL should be the same shape as pretraining'
+description: 'Token-level policy gradient is correct, average over batch tokens, and a packed batch is a replay buffer'
+pubDate: 'Jun 10 2026'
 draft: True
 ---
 
-LLM RL is still next-token prediction, and that's a beautiful thing.
-This blog post is going to explain why this is the case mathematically, and how you should take advantage of it.
-Note that this is nothing new, e.g. current RL frameworks like slime already use megatron-core.
-
-The takeaway: policy gradient is the ground truth.
-For LLMs, policy gradient is just advantage-weighted NLL on model samples.
-Once you view it this way, a few things fall out:
-
-1. The states and actions are token-level.
-2. You can reuse pretraining infrastructure.
-3. Importance weights matter once the data is off-policy, but there are mathematically justified ways around them.
-
-The second point is more than an engineering convenience.
-If LLM RL is advantage-weighted NLL, the training example is just a sequence with a loss mask and an advantage vector:
+RL for LLMs should be the same shape as pretraining.
+A training example is a sequence of tokens, a loss mask, and a per-token weight.
+A batch is packed sequences.
+The loss is weighted NLL:
 $$
 \begin{equation}
-L(\theta) = -\frac{1}{|\mathcal{M}|}\sum_{(i,t)\in\mathcal{M}} A_{i,t}\log \pi_\theta(y_{i,t}\mid x_i, y_{i,<t}).
+L(\theta) = -\frac{1}{|\mathcal{M}|}\sum_{(i,t)\in\mathcal{M}} A_{i,t}\log \pi_\theta(y_{i,t}\mid x_i, y_{i,<t}),
 \end{equation}
 $$
-This maps cleanly onto pretraining infrastructure:
+where $\mathcal{M}$ is the set of unmasked tokens in the batch and $A_{i,t}$ is the advantage.
+Set $A_{i,t}=1$ and this is pretraining.
+This means RL should run on the same infrastructure as pretraining: same packing, same batch API (tokens, masks, per-token weights), same metrics. `gradnorm` is just the gradient norm of a weighted NLL.
 
-1. You can pack sequences.
-2. The batch API can look like the masked-loss APIs used by Tinker and SLIME: tokens, masks, and per-token advantages.
-3. Training metrics have obvious interpretations. For example, `gradnorm` is just the gradient norm of this weighted NLL.
-4. Gradient averaging should follow the pretraining convention: average over active loss tokens after masking and packing.
+This is not just an engineering convenience. The math wants it to be this way. Three claims:
 
-That last point matters.
-If you average gradients the same way as pretraining, you avoid introducing extra length-dependent weighting unless you explicitly want it.
-This sidesteps some of the weird length behavior in the original DeepSeek GRPO setup, where the averaging convention changes which samples receive more weight.
+1. Token-level RL is the right abstraction: the states and actions of the MDP are tokens-in-context, and the token-level gradient estimator is correct. Some recent work argues token-level importance ratios are wrong and you should use sequence-level ratios. We'll derive what's actually justified.
+2. The loss should be averaged over the total number of unmasked tokens in the batch, exactly like pretraining — not averaged per-sequence first.
+3. The right mental model is the classic RL replay buffer: a bag of $(s, a, r, s')$ transitions. A packed batch is just transitions laid out contiguously so they share prefix compute.
 
-The goal of reinforcement learning is to find a policy $\pi(y\mid x)$ that answers question $x$ with answer $y$, achieving high rewards $r(y)$.
-We want to find a $\pi$ that maximizes
+Let's go straight to the math.
+
+# The token MDP
+
+The goal is to find a policy $\pi(y\mid x)$ that answers question $x$ with response $y$, maximizing
 $$
 \begin{equation}
-J[\pi] = E_{x\sim p(x)}\left[E_{y\sim \pi(y\mid x)}[r(y)]\right].
+J[\pi] = E_{x\sim p(x)}\left[E_{y\sim \pi(y\mid x)}[r(x,y)]\right].
 \end{equation}
 $$
-
-# Policy gradient
-The now standard method to search for a policy is via policy gradient:
+The standard estimator is the policy gradient:
 $$
 \begin{align}
-\nabla J[\pi] &= \nabla E_{p(x)}\left[\sum_{y} \pi(y\mid x)r(y)\right]\\
-&= E_{p(x)}\left[\sum_y r(y) \nabla \pi(y\mid x)\right]\\
-&= E_{p(x)}\left[\sum_y r(y) \pi(y\mid x) \nabla \log \pi(y\mid x)\right]\\
-&= E_{p(x)}\left[E_{\pi(y\mid x)} r(y) \nabla \log \pi(y\mid x)\right]\\
+\nabla J[\pi] &= E_{p(x)}\left[\sum_{y} r(x,y)\nabla \pi(y\mid x)\right]\\
+&= E_{p(x)}\left[E_{\pi(y\mid x)}\left[ r(x,y) \nabla \log \pi(y\mid x)\right]\right],
 \end{align}
 $$
-We use this gradient estimator since it is intractable to compute the expectation
-wrt $\pi(y\mid x)$ exactly.
-The score-function derivative is instead used to rewrite the gradient of an expectation
-as the expected gradient.
+using the score-function identity $\nabla \pi = \pi \nabla \log \pi$ to turn the gradient of an expectation into an expectation of a gradient.
 
-There is an issue with using this estimator in practice:
-The policy gradient estimator may suffer from high variance.
-This is caused by the variance in the rewards obtained by the sampled trajectories.
-
-# Policy gradient with baseline
-One source of variance is caused by problem difficulty.
-Let's say $r(y) \in \{0,1\}$,
-And you have two problems of very different difficulties.
-One is very hard for the current policy, and the other is easy.
-The reward will always be 1 for the easy problem, causing the model to update in that direction.
-If we lessen the reward for already-solved problems, the gradient won't vary as much across problem difficulties.
-
-We do this by introducing a problem-dependent baseline $b(x)$ and using the gradient estimator
+So far this is sequence-level. But an LLM policy is autoregressive, so the sequence log-probability decomposes exactly:
 $$
 \begin{equation}
-E_{p(x)}\left[E_{\pi(y\mid x)} (r(y)-b(x)) \nabla \log \pi(y\mid x)\right].
+\nabla \log \pi(y\mid x) = \sum_t \nabla \log \pi(y_t \mid x, y_{<t}).
 \end{equation}
 $$
-Note that since $b(y)$ does not depend on $y$, we have
+This is the token MDP: the state is $s_t = (x, y_{<t})$, the action is $a_t = y_t$, and the transition $s_{t+1} = (s_t, a_t)$ is deterministic.
+No approximation has been made — the token-level estimator
 $$
-\begin{align}
-E_{p(x)}\left[E_{\pi(y\mid x)} b(x) \nabla \log \pi(y\mid x)\right]
-&= E_{p(x)}\left[b(x) E_{\pi(y\mid x)} \nabla \log \pi(y\mid x)\right]\\
-&= E_{p(x)}\left[b(x)\nabla  E_{\pi(y\mid x)} \log \pi(y\mid x)\right]\\
-&= E_{p(x)}\left[b(x)\nabla  1\right]\\
-&= E_{p(x)}\left[b(x) \cdot 0\right],
-\end{align}
+\begin{equation}
+\nabla J[\pi] = E\left[\sum_t r(x,y) \nabla \log \pi(a_t\mid s_t)\right]
+\end{equation}
 $$
-giving an unbiased estimator.
+*is* the policy gradient. Token-level is not a heuristic decomposition of a fundamentally sequence-level object; sequences are the trajectories of a token-level MDP.
 
-A common baseline is a Monte Carlo estimate of the expected reward.
-This is unbiased as long as it does not depend on the sampled $y$, leading to the leave-one-out estimator.
+# Baselines
 
-GRPO additional scales the reward by the standard deviation of the Monte Carlo samples.
-This has the effect of penalizing problems where the policy is inconsistent and emphasizing
-problems where the model is consistent but with outliers.
+The raw estimator has high variance: easy problems always get reward 1 and dominate the update. We subtract a problem-dependent baseline $b(x)$:
+$$
+\begin{equation}
+E_{p(x)}\left[E_{\pi(y\mid x)}\left[ (r(x,y)-b(x)) \nabla \log \pi(y\mid x)\right]\right].
+\end{equation}
+$$
+This is unbiased because the score function has zero mean:
+$$
+\begin{equation}
+E_{\pi(y\mid x)}\left[\nabla \log \pi(y\mid x)\right]
+= \sum_y \pi(y\mid x) \frac{\nabla \pi(y\mid x)}{\pi(y\mid x)}
+= \nabla \sum_y \pi(y\mid x)
+= \nabla 1 = 0.
+\end{equation}
+$$
+A Monte Carlo estimate of the expected reward is a valid baseline as long as it does not depend on the sample being weighted, giving the leave-one-out estimator.
+Defining $A_{i,t} = r(x, y_i) - b(x)$ (constant across $t$ for outcome rewards) and plugging into the token decomposition gives exactly the weighted NLL in equation (1).
 
-# Off-policy policy gradient
-Another issue encountered in practice is instability due to off-policy learning.
-Since sampling is expensive, it is common to take multiple gradient steps for each batch of samples
-to prevent sampling from dominating compute.
-In order to prevent instability, methods like PPO and GRPO do two things:
-add a KL regularization term and clip the likelihood ratio.
+# Is token-level wrong off-policy?
+
+On-policy, the derivation above settles it. The controversy is off-policy: sampling is expensive, so we take several gradient steps per batch, and the data was sampled from a stale policy $\mu$. Recent work ([GSPO](https://arxiv.org/abs/2507.18071)) argues that the per-token ratio $\frac{\pi_\theta(a_t\mid s_t)}{\mu(a_t\mid s_t)}$ used by PPO/GRPO is not a valid importance weight, and that the correct weight is the sequence-level ratio.
+
+The complaint is technically correct as far as it goes: the unbiased correction for $E_{\pi}$ using samples from $\mu$ is
+$$
+\begin{equation}
+\frac{\pi_\theta(y\mid x)}{\mu(y\mid x)} = \prod_t \frac{\pi_\theta(a_t\mid s_t)}{\mu(a_t\mid s_t)},
+\end{equation}
+$$
+the product of token ratios, not any individual one. But unbiased is not the right goal here — the variance of this product grows exponentially with sequence length, and clipping it discards entire sequences at a time.
+
+The token-level estimator has its own justification, and it's the classic one. The performance difference lemma writes the improvement of $\pi$ over $\mu$ as an expectation over states visited by $\pi$; the trust-region surrogate (CPI, TRPO, PPO) approximates that state distribution with $\mu$'s:
+$$
+\begin{equation}
+J[\pi] - J[\mu] \approx E_{s\sim d^\mu}\left[E_{a\sim \mu(\cdot\mid s)}\left[\frac{\pi_\theta(a\mid s)}{\mu(a\mid s)} A^\mu(s,a)\right]\right].
+\end{equation}
+$$
+Here the per-token ratio is doing a precise job: it corrects the *action* distribution at each state the old policy visited. The only thing left uncorrected is the mismatch between state distributions $d^\pi$ and $d^\mu$, and the surrogate's error is bounded by the KL between the policies — which is exactly what clipping and KL regularization keep small.
+
+So the choice is: unbiased with exponential variance (sequence-level), or biased by a state-distribution term that the trust region controls (token-level). Classic deep RL made this choice long ago — PPO on robotics tasks is the token-level surrogate over $(s,a)$ pairs — and it's the right choice for LLMs for the same reason. Token-level ratios are not an LLM-era hack; they are the standard trust-region estimator applied to the token MDP.
+
+# Average over tokens, like pretraining
+
+Equation (1) averages over all unmasked tokens in the batch. The original GRPO objective instead averages over tokens within each sequence, then averages over sequences. That gives every *sequence* equal weight, which means a token in a long sequence gets less weight than a token in a short one — an implicit length-dependent reweighting that produces the well-documented length biases ([Dr. GRPO](https://arxiv.org/abs/2503.20783), [DAPO](https://arxiv.org/abs/2503.14476)).
+
+The pretraining convention — sum the masked loss over the batch, divide by the total number of active tokens — gives every token equal weight. In the token MDP view this is the only natural choice: each token is a transition, and the estimator is a uniform average over transitions. Per-sequence averaging weights each transition by the inverse length of its episode, which is not an estimator of anything you wrote down. If you want length shaping, put it in the reward, not in the averaging convention.
+
+This is also the convention your infrastructure already implements. If RL uses the pretraining loss reduction, packing changes nothing, gradient accumulation changes nothing, and metrics keep their interpretations.
+
+# A packed batch is a replay buffer
+
+Classic RL got this shape right decades ago. A replay buffer doesn't store episodes; it stores transitions $(s_t, a_t, r_t, s_{t+1})$, and a minibatch is a uniform sample of transitions. Nobody normalizes a DQN update by episode length.
+
+The LLM analog: a transition is a token in context, an episode is a sequence, and a packed batch is a set of transitions laid out contiguously so that transitions from the same episode share prefix compute. Token-level averaging is uniform sampling from the buffer. The loss mask is just the mechanism for selecting which transitions in the buffer belong to the policy (sampled tokens) versus the environment (prompt tokens).
+
+The buffer view also makes the off-policy story unsurprising: a replay buffer is off-policy by construction, which is precisely why the previous section's importance-weight discussion exists, and why the trust-region surrogate — not the unbiased sequence ratio — is what every replay-based method actually optimizes.
+
+RL is not a different kind of training that happens to reuse pretraining code. It is weighted NLL over a buffer of transitions, and pretraining infrastructure is already a transition-buffer trainer with all weights set to 1.
