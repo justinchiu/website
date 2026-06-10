@@ -20,7 +20,7 @@ This means RL should run on the same infrastructure as pretraining: same packing
 
 This is not just an engineering convenience. The math wants it to be this way. Three claims:
 
-1. Token-level RL is the right abstraction: the states and actions of the MDP are tokens-in-context, and the token-level gradient estimator is correct. Some recent work argues token-level importance ratios are wrong and you should use sequence-level ratios. We'll derive what's actually justified.
+1. Token-level RL is the right abstraction: the states and actions of the MDP are tokens-in-context, and the token-level gradient estimator is correct. Some recent work argues token-level importance ratios are wrong and you should use sequence-level ratios. We'll derive what's actually justified — and show that at the token level you can often avoid importance weights entirely by Rao-Blackwellizing over the vocabulary.
 2. The loss should be averaged over the total number of unmasked tokens in the batch, exactly like pretraining — not averaged per-sequence first.
 3. The right mental model is the classic RL replay buffer: a bag of $(s, a, r, s')$ transitions. A packed batch is just transitions laid out contiguously so they share prefix compute.
 
@@ -100,6 +100,30 @@ Here the per-token ratio is doing a precise job: it corrects the *action* distri
 
 So the choice is: unbiased with exponential variance (sequence-level), or biased by a state-distribution term that the trust region controls (token-level). Classic deep RL made this choice long ago — PPO on robotics tasks is the token-level surrogate over $(s,a)$ pairs — and it's the right choice for LLMs for the same reason. Token-level ratios are not an LLM-era hack; they are the standard trust-region estimator applied to the token MDP.
 
+# Avoiding importance weights entirely
+
+The token MDP offers something stronger than a better-behaved importance weight: at the action level, you can often skip the importance weight altogether by computing the expectation exactly.
+
+Importance weights exist because an expectation is intractable to compute and must be estimated from samples drawn under the wrong distribution. At the sequence level this is unavoidable — there are exponentially many responses. But in the token MDP, the inner expectation at each state is over the vocabulary, and the forward pass already computes the full distribution $\pi_\theta(\cdot\mid s)$ at every position. For any per-token quantity $g(s,a)$ that can be evaluated at arbitrary actions,
+$$
+\begin{equation}
+E_{a\sim\pi_\theta(\cdot\mid s)}\left[g(s,a)\right] = \sum_{a\in V} \pi_\theta(a\mid s)\, g(s,a)
+\end{equation}
+$$
+is an exact sum under the *current* policy — no action sampling, no ratio, zero variance from the action choice. The states still come from stale samples, but that is the state-distribution mismatch the trust region was already handling; the part the per-token ratio was responsible for is now computed in closed form. The familiar instance is the KL penalty: summing the per-token KL to the reference policy over the vocabulary, instead of using a sampled-token estimator, is exactly this move.
+
+When evaluating $g$ at all $K$ tokens is too expensive, [Liu et al. (2019)](https://arxiv.org/abs/1810.04777) give the right compromise. Let $C_k$ be the $k$ highest-probability tokens under $q_\eta = \pi_\theta(\cdot\mid s)$ and $\bar{C}_k$ the rest. Split the expectation, compute the head exactly, and estimate the tail with a single draw from the conditional distribution:
+$$
+\begin{equation}
+\hat{g} = \sum_{z\in C_k} q_\eta(z)\, g(z) + q_\eta(\bar{C}_k)\, g(v), \qquad v \sim q_\eta \mid \bar{C}_k.
+\end{equation}
+$$
+This is Rao-Blackwellization: it is unbiased and never increases variance. And look at the one importance weight that survives — it is the scalar $q_\eta(\bar{C}_k)$, constant in $v$ and bounded by 1. It cannot explode the way a likelihood ratio can. Since LLM distributions concentrate most of their mass on a few tokens, $q_\eta(\bar{C}_k)$ is small and the estimator is nearly deterministic. Identifying $C_k$ is free: it's a top-$k$ over logits you already computed.
+
+The honest caveat: this applies to terms you can evaluate at unsampled actions. For a pure outcome reward, $A(s,a)$ at a different token would require rolling out a new continuation, so the sampled-action estimator of the previous section stands. But a growing fraction of the objective doesn't have that problem — KL and entropy regularizers, distillation against teacher logits, advantages from a value or Q model — and these are precisely the terms where people currently pay sampling variance or bolt on ratios for no reason.
+
+Note this option exists only at the token level. The sequence-level view forces importance weights because it cannot enumerate its action space; the token-level view gets the whole action distribution from the same softmax that pretraining's cross-entropy uses. Same shape, again.
+
 # Average over tokens, like pretraining
 
 Equation (1) averages over all unmasked tokens in the batch. The original GRPO objective instead averages over tokens within each sequence, then averages over sequences. That gives every *sequence* equal weight, which means a token in a long sequence gets less weight than a token in a short one — an implicit length-dependent reweighting that produces the well-documented length biases ([Dr. GRPO](https://arxiv.org/abs/2503.20783), [DAPO](https://arxiv.org/abs/2503.14476)).
@@ -115,5 +139,38 @@ Classic RL got this shape right decades ago. A replay buffer doesn't store episo
 The LLM analog: a transition is a token in context, an episode is a sequence, and a packed batch is a set of transitions laid out contiguously so that transitions from the same episode share prefix compute. Token-level averaging is uniform sampling from the buffer. The loss mask is just the mechanism for selecting which transitions in the buffer belong to the policy (sampled tokens) versus the environment (prompt tokens).
 
 The buffer view also makes the off-policy story unsurprising: a replay buffer is off-policy by construction, which is precisely why the previous section's importance-weight discussion exists, and why the trust-region surrogate — not the unbiased sequence ratio — is what every replay-based method actually optimizes.
+
+# Tree replay buffers: four expectations to Rao-Blackwellize
+
+The buffer view suggests an upgrade. Transitions from the same episode share prefixes, and if you branch during sampling — several actions drawn from the same state, several futures continued from the same action — the buffer is not a bag of paths but a tree. Nodes are states, edges are tokens, leaves carry outcome rewards. GRPO's group of $N$ completions is the trivial tree: branch $N$ ways at the root, never again.
+
+To use a tree correctly, make every expectation in the estimator explicit. Take the $t$-th term of the policy gradient (equation 6) and factor the trajectory distribution around position $t$:
+$$
+\begin{equation}
+p(x, y) = p(s_t)\,\pi(a_t\mid s_t)\,p(y_{>t}\mid s_t, a_t),
+\end{equation}
+$$
+where $p(s_t)$ is the marginal over prefixes. The score $\nabla\log\pi(a_t\mid s_t)$ does not depend on the future, so the future marginalizes into a value:
+$$
+\begin{equation}
+E\left[r\,\nabla\log\pi(a_t\mid s_t)\right] = E_{p(s_t)}\left[E_{\pi(a\mid s_t)}\left[Q(s_t,a)\,\nabla\log\pi(a\mid s_t)\right]\right],
+\qquad Q(s,a) = E_{p(y_{>t}\mid s,a)}\left[r\right].
+\end{equation}
+$$
+Subtracting $V(s) = E_{\pi(a\mid s)}\left[Q(s,a)\right]$ — unbiased because the score has zero mean (equation 8) — and summing over positions:
+$$
+\begin{equation}
+\nabla J = \sum_t E_{p(s_t)}\left[E_{\pi(a\mid s_t)}\left[\big(Q(s_t,a) - V(s_t)\big)\,\nabla\log\pi(a\mid s_t)\right]\right].
+\end{equation}
+$$
+
+Count the expectations: the state marginal $p(s)$, the action distribution $\pi(a\mid s)$, the futures inside $Q$, and the actions-and-futures inside $V$. Four. A single rollout estimates all four with the same one sample. A tree gives you more samples of each — but only if each expectation is Rao-Blackwellized with respect to the right part of the tree:
+
+1. **$Q(s,a)$: average the subtree, not your own path.** Every leaf below the edge $(s,a)$ is a sample of the future. Replacing a rollout's own return with the mean return of its subtree is a conditional expectation given the tree — Rao-Blackwellization again, unbiased, variance never higher.
+2. **$V(s)$: sibling subtrees, leave-one-out, at every node.** The baseline applied to the edge $(s,a)$ must not depend on the data below that edge, or the zero-mean argument breaks and the estimator is biased. Use the leave-one-out mean of the sibling subtrees' $Q$ estimates. GRPO's group-mean baseline is exactly this at the root; in a tree you do it at every internal node, which gives each token a position-dependent baseline instead of one scalar per sequence.
+3. **$\pi(a\mid s)$: children are action samples — or skip sampling.** Multiple children of a node form a multi-sample Monte Carlo estimate of the action expectation. Better, use the previous section: enumerate the top-$k$ actions exactly and correct with a draw from the conditional tail. Branching and Rao-Blackwellization over the vocabulary compose.
+4. **$p(s)$: weight states by visitation, and don't lose it when flattening.** The marginal of a node is estimated by the fraction of rollouts passing through it — the number of leaves below it over $N$. When the tree is flattened into a packed batch, a shared prefix token appears once but stands for many rollouts, so its loss weight must carry that multiplicity. Deduplicate without reweighting and you have silently tilted $p(s)$ toward deep, rare states — the tree version of the per-sequence averaging mistake.
+
+After all four corrections, the training example is still tokens, a mask, and per-token weights; Rao-Blackwellization only changes the numbers in the weights. And the tree is the same prefix-sharing structure inference engines already exploit: compute the shared prefix once when sampling, once when training, and let the weights carry the multiplicity.
 
 RL is not a different kind of training that happens to reuse pretraining code. It is weighted NLL over a buffer of transitions, and pretraining infrastructure is already a transition-buffer trainer with all weights set to 1.
