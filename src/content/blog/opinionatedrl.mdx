@@ -174,3 +174,25 @@ Count the expectations: the state marginal $p(s)$, the action distribution $\pi(
 After all four corrections, the training example is still tokens, a mask, and per-token weights; Rao-Blackwellization only changes the numbers in the weights. And the tree is the same prefix-sharing structure inference engines already exploit: compute the shared prefix once when sampling, once when training, and let the weights carry the multiplicity.
 
 RL is not a different kind of training that happens to reuse pretraining code. It is weighted NLL over a buffer of transitions, and pretraining infrastructure is already a transition-buffer trainer with all weights set to 1.
+
+# Supplement: experiment proposal
+
+The tree-buffer claims are falsifiable, so here is how to falsify them. Two tiers: an exact small-scale check where bias and variance can be measured against ground truth, and a real LLM run showing it translates to sample efficiency. The first makes people believe it; the second makes people adopt it.
+
+**Tier 1: ground-truth gradient comparison.** Use a setting where the true policy gradient is exactly computable: a small transformer, vocabulary of 10–50 tokens, horizon short enough to enumerate the trajectory space (or near-enumerate with a huge-sample Monte Carlo reference), and a programmatic reward. At a few fixed checkpoints, draw many independent tree-buffers and compute each estimator's gradient. Plot bias (error against the true gradient) and variance for:
+
+1. the single-rollout GRPO-style estimator,
+2. the tree with all four corrections,
+3. the tree with each correction knocked out one at a time: own-path return instead of subtree-mean $Q$, a baseline that includes its own subtree instead of leave-one-out $V$, deduplicated prefixes without visitation weights, and per-sequence instead of per-token averaging.
+
+The math makes a sharp prediction. The full estimator is unbiased with strictly lower variance. The non-LOO baseline and the unweighted dedup are *biased*: their error should not shrink as samples are added. A figure where the knocked-out variants converge to the wrong gradient while the corrected estimator converges to the right one with smaller error bars is the whole argument in one plot. This tier is a day of compute on one GPU.
+
+**Tier 2: matched-compute LLM run.** A small open model on math with verifiable reward — standard enough that the setup needs no defense. The key design decision is the compute accounting: compare at matched *sampler FLOPs*, not matched leaf count, because prefix sharing is half the point — a tree yields more leaves per FLOP. Three arms:
+
+1. GRPO with $N$ independent rollouts per prompt,
+2. tree rollouts (branch at a few entropy-based or random positions) with all four corrections,
+3. the same tree data processed naively: root-only baseline, own-path returns, no visitation weights.
+
+Arm 3 is the important control — it separates "trees help" from "correct estimation on trees helps," which is the actual claim. Report reward against sampler FLOPs, plus two mechanistic metrics during training: empirical advantage variance and gradient signal-to-noise across microbatches. If the math above is right, arm 2 dominates arm 1 in sample efficiency, and arm 3 underperforms or destabilizes late as its bias compounds.
+
+**Side experiments for the other sections.** For the averaging convention: run per-sequence against per-token averaging and plot mean response length over training — the length drift is the known signature and reproduces easily. For Rao-Blackwellization over the vocabulary: compare the exact per-token KL against a sampled estimator at equal compute and plot the variance of the KL term; same comparison for a top-$k$-plus-tail distillation loss against sampled-token distillation.
