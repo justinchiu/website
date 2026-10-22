@@ -10,10 +10,12 @@ TreeRL branches during sampling and trains on the whole tree.
 VinePPO's Monte Carlo continuations give unbiased values, but they are only used to estimate values and are never actually trained on.
 In this blog post, we derive the tree policy gradient estimator so you can learn from branches with confidence.
 
+Before getting into the math, a disclaimer. Both TreeRL and previous experiments I conducted a year ago found that when you control for compute, tree-based RL often doesnt lead to significant gains over policy gradient. This likely depends greatly on how you select branching points (the exploration policy), but initial signs point to the extra implementation overhead not being worth it.
+
 # Policy gradient
 
 The policy $\pi_\theta$ generates tokens $x = x_1\ldots x_T$ and gets terminal reward $r(x)$.
-At position $t$, the state is $s_t = x_{<t}$, the action is $a_t = x_t$, and the future tokens $x_{>t}$.
+Translating to RL terminology: At position $t$, the state is all previous tokens $s_t = x_{<t}$, the action is the current token $a_t = x_t$, and then we just have future tokens $x_{>t}$.
 The action-value function $Q(s,a) = E_{p(y\mid s,a)}[r(s,a,x_{>t})]$ and value function $V(s) = E_{p(a\mid s)}[Q(s,a)]$.
 The policy gradient is
 
@@ -29,4 +31,4 @@ $$
 This is straightforward to apply to a chain with terminal reward: treat the whole chain as a single action. Note that this only works if we assume a discount factor of 1, which we usually do with LLMs.
 
 # Tree policy gradient
-
+TODO. Not really that valuable.
